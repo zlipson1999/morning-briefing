@@ -120,6 +120,12 @@ number.
   the rain. Sections with nothing notable are left out rather than narrated,
   and it ends on the single most useful thing to do first.
 
+Both follow the same order: **local news, then tasks, then the inbox**, then
+the shape of the day, then weather, the portfolio, and at most one item from
+the wider world. The single exception is a leave-by time inside forty-five
+minutes, which jumps to the front — "you should have left fourteen minutes
+ago" is not a sixth sentence.
+
 The second is strictly an upgrade path. No key, a failed call, or a refusal
 all fall back to the first, so the endpoint has no state where you get
 nothing. `X-Briefing-Author` on the response says which one answered, and
@@ -133,17 +139,50 @@ bill a new one.
 `?format=json` returns the snapshot itself, for anything that would rather
 render the data than hear it.
 
+## Reaching it from your phone
+
+The app is meant to be reached over [Tailscale](https://tailscale.com) rather
+than deployed: one person, no public URL, and therefore no auth to build,
+no login to get wrong, and no endpoint on the open internet serving your
+inbox.
+
+```bash
+npm run dev:tailscale     # or: npm run start:tailscale, after a build
+```
+
+That binds every interface so the tailnet address is reachable — Tailscale's
+own ACLs are what gate access, not the bind address. `next.config.ts` already
+allows `*.ts.net` and the `100.64.0.0/10` range as dev origins, without which
+the page server-renders on your phone but never hydrates.
+
+Then open `http://<machine>.<tailnet>.ts.net:3000` and add it to your home
+screen. The web manifest makes it launch standalone, without browser chrome;
+below `lg` the panels stack and the page scrolls normally, and the theme
+colour and `viewport-fit` handle the status bar and the notch.
+
 ## The boot sequence and the voice
 
 Opening the app powers up an arc reactor over a black screen, runs its start-up
 checks, then fades into the dashboard. Any click or keypress skips it, and
 `prefers-reduced-motion` drops straight to the dashboard.
 
-While that plays, the briefing is read aloud — schedule, inbox, tasks,
-portfolio and headlines — through the browser's own speech engine. No API key
-and no audio files.
+While that plays, the briefing is read aloud. It is spoken in one of two
+voices, and the app prefers the first it can use:
 
-Two details that matter in practice:
+- **The server's voice** (`GET /api/briefing/audio`), synthesised once per
+  briefing and cached. Either [Piper](https://github.com/rhasspy/piper) — a
+  local binary, no key, no network, no per-word cost — or ElevenLabs, if you
+  want the better voice more than the zero dependency. Set either in
+  `.env.local`; Piper wins when both are configured.
+- **The browser's own engine**, if no backend is set up or synthesis fails.
+  Free and offline, but the voice list differs on every platform, and none of
+  the preferred ones exist on iOS Safari — which is the half of the time you
+  would actually use this.
+
+The fallback is automatic and silent: a missing binary, a bad key or a 502
+costs you the better voice, never the briefing.
+
+Two details that matter in the browser-engine path:
 
 - **Browsers refuse speech without a user gesture.** That is discovered while
   the boot screen is still up, which is why the reactor screen is where it
@@ -162,7 +201,8 @@ across visits and syncs between tabs.
 text-to-speech engine:
 
 ```bash
-curl -s localhost:3000/api/briefing | piper --model en_US-lessac-medium --output_file brief.wav
+curl -s localhost:3000/api/briefing                    # the prose
+curl -s localhost:3000/api/briefing/audio -o brief.wav # already spoken
 ```
 
 It's deliberately a plain HTTP endpoint rather than an integration, so any
@@ -170,13 +210,6 @@ assistant, cron job or phone shortcut can consume it without this app knowing
 anything about them — the in-app voice reads this exact text. Each section is
 independent: a dead upstream drops that sentence rather than the whole
 briefing.
-
-## On a phone
-
-The app ships a web manifest and installs to a home screen as a standalone
-app, which is where a morning briefing is actually read. Below `lg` the panels
-stack and the page scrolls normally; the theme colour and `viewport-fit`
-handle the status bar and the notch.
 
 ## How the live panels work
 
@@ -199,6 +232,7 @@ src/
       etrade/       OAuth 1.0a signing, live client, mock provider
       etrade/seal.ts  AES-256-GCM sealing for the session cookie
       commute.ts    OSRM routing + Nominatim geocoding for the leave-by time
+    tts/            server-side speech: Piper or ElevenLabs, cached per briefing
     briefing/
       snapshot.ts   everything known about today, gathered once
       template.ts   the deterministic composer — always available
@@ -265,8 +299,12 @@ The suite covers the places bugs actually hide:
   going negative once you're late, and returning nothing rather than throwing
   when the geocoder or the router is down.
 - **Briefing composition** — that the deterministic briefing is valid with
-  every upstream dead, speaks symbols as words, and stays quiet about a
-  portfolio that isn't connected.
+  every upstream dead, speaks symbols as words, stays quiet about a portfolio
+  that isn't connected, holds the local-news-first order, and hoists an
+  imminent leave-by above it.
+- **Speech backends** — backend selection and precedence, that the key travels
+  as a header and never in a URL, that identical text is synthesised once, and
+  that every failure path returns null so the browser engine takes over.
 
 ## Note on `next.config.ts`
 

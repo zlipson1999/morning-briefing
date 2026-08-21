@@ -1,11 +1,13 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useBriefingVoice, type VoiceState } from "@/hooks/useBriefingVoice";
+import { useBriefingVoice, type VoiceSource, type VoiceState } from "@/hooks/useBriefingVoice";
 import BootSequence from "./BootSequence";
 
 type VoiceContextValue = {
   state: VoiceState;
+  /** Which engine is talking: the server's voice, or the browser's own. */
+  voiceSource: VoiceSource;
   muted: boolean;
   speak: (options?: { force?: boolean }) => void;
   stop: () => void;
@@ -29,7 +31,7 @@ export function useVoice(): VoiceContextValue {
  * is still up — that screen is where we can ask for the tap.
  */
 export default function VoiceProvider({ children }: { children: ReactNode }) {
-  const { state, muted, speak, stop, toggleMute } = useBriefingVoice();
+  const { state, voiceSource, muted, speak, stop, toggleMute } = useBriefingVoice();
   const [booting, setBooting] = useState(true);
 
   useEffect(() => {
@@ -37,8 +39,8 @@ export default function VoiceProvider({ children }: { children: ReactNode }) {
   }, [speak]);
 
   const value = useMemo(
-    () => ({ state, muted, speak, stop, toggleMute }),
-    [state, muted, speak, stop, toggleMute],
+    () => ({ state, voiceSource, muted, speak, stop, toggleMute }),
+    [state, voiceSource, muted, speak, stop, toggleMute],
   );
 
   return (

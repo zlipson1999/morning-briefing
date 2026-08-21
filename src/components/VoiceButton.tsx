@@ -8,7 +8,7 @@ import { useVoice } from "./VoiceProvider";
  * doesn't look like a broken button.
  */
 export default function VoiceButton() {
-  const { state, muted, speak, stop, toggleMute } = useVoice();
+  const { state, voiceSource, muted, speak, stop, toggleMute } = useVoice();
 
   if (state === "unsupported") return null;
 
@@ -29,6 +29,13 @@ export default function VoiceButton() {
         type="button"
         onClick={() => (speaking ? stop() : speak({ force: true }))}
         disabled={muted || state === "loading"}
+        title={
+          voiceSource === "server"
+            ? "Reading with the server voice."
+            : voiceSource === "browser"
+              ? "Reading with this browser's built-in voice."
+              : undefined
+        }
         className="flex items-center gap-1.5 rounded-lg border border-ink-600 px-2.5 py-1 text-[11px] font-medium tracking-wide text-mist-300 uppercase transition-colors hover:border-[#5cc8de]/60 hover:text-[#5cc8de] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#5cc8de] focus-visible:outline-none"
       >
         <span

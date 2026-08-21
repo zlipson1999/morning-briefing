@@ -126,6 +126,81 @@ describe("composeTemplate", () => {
     expect(text).toContain("Sunrise 6:57 AM, sunset 7:52 PM");
   });
 
+  /**
+   * The requested order: what's happening locally leads, then what you owe,
+   * then who's waiting on you. The wider world comes last.
+   */
+  it("leads with local news and ends with the wider world", () => {
+    const text = composeTemplate(
+      snapshot({
+        news: {
+          local: [{ title: "Lantana bridge closes for repairs", source: "Palm Beach Post" }],
+          global: [{ title: "Somewhere far away", source: "BBC World" }],
+        },
+        tasks: {
+          open: 1,
+          done: 0,
+          items: [{ title: "Ship the thing", due: "Today", priority: "high", project: "p", overdue: false }],
+        },
+      }),
+    );
+
+    const local = text.indexOf("Lantana bridge closes");
+    const tasks = text.indexOf("1 open task");
+    const inbox = text.indexOf("unread email");
+    const global = text.indexOf("Somewhere far away");
+
+    expect(local).toBeGreaterThan(-1);
+    expect(local).toBeLessThan(tasks);
+    expect(tasks).toBeLessThan(inbox);
+    expect(inbox).toBeLessThan(global);
+    expect(text).toContain("from Palm Beach Post");
+  });
+
+  /**
+   * The one exception to that order: being late is not a sixth sentence.
+   */
+  it("hoists an imminent leave-by above everything else", () => {
+    const commute = {
+      destination: "Design review",
+      address: "500 S Australian Ave",
+      startsAt: "11:00",
+      driveMinutes: 29,
+      distanceMiles: 12,
+      leaveInMinutes: 12,
+      leaveAtLabel: "10:31 AM",
+      freeFlow: true,
+    };
+    const news = {
+      local: [{ title: "Lantana bridge closes for repairs", source: "Palm Beach Post" }],
+      global: [],
+    };
+
+    const urgent = composeTemplate(snapshot({ commute, news }));
+    expect(urgent.indexOf("Leave in 12 minutes")).toBeLessThan(urgent.indexOf("Lantana bridge"));
+
+    // A drive three hours out is just part of the day's shape.
+    const relaxed = composeTemplate(snapshot({ commute: { ...commute, leaveInMinutes: 180 }, news }));
+    expect(relaxed.indexOf("Leave in 180 minutes")).toBeGreaterThan(relaxed.indexOf("Lantana bridge"));
+  });
+
+  it("puts overdue work ahead of merely high-priority work", () => {
+    const text = composeTemplate(
+      snapshot({
+        tasks: {
+          open: 2,
+          done: 0,
+          items: [
+            { title: "Important thing", due: "Today", priority: "high", project: "p", overdue: false },
+            { title: "Merge the scheduler PR", due: "Yesterday", priority: "medium", project: "p", overdue: true },
+          ],
+        },
+      }),
+    );
+    expect(text).toContain("1 of them is overdue — starting with Merge the scheduler PR");
+    expect(text).not.toContain("Important thing");
+  });
+
   it("names flagged senders by first name", () => {
     const text = composeTemplate(
       snapshot({
