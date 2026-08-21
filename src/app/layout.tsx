@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { USER_NAME } from "@/lib/data";
+import VoiceProvider from "@/components/VoiceProvider";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -18,7 +19,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={inter.variable}>
-      <body>{children}</body>
+      <body>
+        <VoiceProvider>{children}</VoiceProvider>
+      </body>
     </html>
   );
 }

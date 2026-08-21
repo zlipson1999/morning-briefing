@@ -64,7 +64,30 @@ Access tokens are held in server memory only. They are never written to a
 cookie, never sent to the browser, and never persisted to disk — the browser
 holds an opaque session id and nothing else.
 
-## Speaking the briefing
+## The boot sequence and the voice
+
+Opening the app powers up an arc reactor over a black screen, runs its start-up
+checks, then fades into the dashboard. Any click or keypress skips it, and
+`prefers-reduced-motion` drops straight to the dashboard.
+
+While that plays, the briefing is read aloud — schedule, inbox, tasks,
+portfolio and headlines — through the browser's own speech engine. No API key
+and no audio files.
+
+Two details that matter in practice:
+
+- **Browsers refuse speech without a user gesture.** That is discovered while
+  the boot screen is still up, which is why the reactor screen is where it
+  offers *Tap to enable voice* rather than the dashboard silently never
+  talking.
+- **Chrome stops synthesising a single long utterance after roughly fifteen
+  seconds.** The briefing is split into sentence-sized utterances to get
+  around it, which also makes stopping responsive.
+
+The header carries a replay/stop control and a mute toggle. Mute persists
+across visits and syncs between tabs.
+
+## Speaking it somewhere else
 
 `GET /api/briefing` returns the whole thing as plain prose, built for a
 text-to-speech engine:
@@ -75,8 +98,9 @@ curl -s localhost:3000/api/briefing | piper --model en_US-lessac-medium --output
 
 It's deliberately a plain HTTP endpoint rather than an integration, so any
 assistant, cron job or phone shortcut can consume it without this app knowing
-anything about them. Each section is independent — a dead upstream drops that
-sentence rather than the whole briefing.
+anything about them — the in-app voice reads this exact text. Each section is
+independent: a dead upstream drops that sentence rather than the whole
+briefing.
 
 ## How the live panels work
 
@@ -95,9 +119,14 @@ src/
       news.ts       RSS/Atom/RDF parsing, per-feed error isolation
       weather.ts    Open-Meteo + Nominatim reverse geocoding
       etrade/       OAuth 1.0a signing, live client, mock provider
+  components/
+    ArcReactor.tsx    generated SVG geometry, animated in CSS
+    BootSequence.tsx  start-up overlay, skippable
+    VoiceProvider.tsx owns the boot overlay and the speech session
   hooks/
-    usePanelData.ts loading/error/stale/refresh, pauses polling when tab hidden
-    useLocation.ts  geolocation with configured fallback
+    usePanelData.ts   loading/error/stale/refresh, pauses polling when tab hidden
+    useLocation.ts    geolocation with configured fallback
+    useBriefingVoice.ts speech synthesis, voice selection, mute preference
 ```
 
 Three deliberate choices worth knowing:

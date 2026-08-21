@@ -2,6 +2,7 @@
 
 import { SunIcon } from "./icons";
 import WeatherStrip from "./WeatherStrip";
+import VoiceButton from "./VoiceButton";
 import { USER_NAME } from "@/lib/data";
 import { useClock } from "@/lib/useClock";
 
@@ -52,6 +53,9 @@ export default function Header() {
         </p>
         <div className="mt-2 flex sm:justify-end">
           <WeatherStrip />
+        </div>
+        <div className="mt-2.5 flex sm:justify-end">
+          <VoiceButton />
         </div>
       </div>
     </header>

@@ -82,3 +82,65 @@ body::before {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- arc reactor boot sequence ---------- */
+
+@keyframes ar-spin { to { transform: rotate(360deg); } }
+@keyframes ar-spin-back { to { transform: rotate(-360deg); } }
+
+@keyframes ar-breathe {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.045); }
+}
+
+@keyframes ar-coil-fire {
+  0%   { opacity: 0.18; }
+  40%  { opacity: 1; }
+  100% { opacity: 0.85; }
+}
+
+@keyframes ar-halo-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.96); }
+  50%      { opacity: 0.9; transform: scale(1.06); }
+}
+
+/* SVG children rotate about the artwork centre, not the element box. */
+.ar-ticks, .ar-coils, .ar-sweep, .ar-core, .ar-halo {
+  transform-origin: 100px 100px;
+}
+
+.ar-ticks  { animation: ar-spin 24s linear infinite; }
+.ar-coils  { animation: ar-spin-back 38s linear infinite; }
+.ar-sweep  { animation: ar-spin 3.2s linear infinite; }
+.ar-core   { animation: ar-breathe 2.6s ease-in-out infinite; }
+.ar-halo   { animation: ar-halo-pulse 3.4s ease-in-out infinite; }
+.ar-coil   { animation: ar-coil-fire 1.1s ease-out both; }
+
+@keyframes boot-in {
+  from { opacity: 0; transform: scale(0.82); filter: blur(6px); }
+  to   { opacity: 1; transform: none;        filter: none; }
+}
+
+@keyframes boot-line {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.boot-reactor { animation: boot-in 1s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.boot-line    { animation: boot-line 0.45s ease-out both; }
+
+.boot-overlay {
+  transition: opacity 700ms ease, visibility 700ms ease;
+}
+.boot-overlay[data-leaving="true"] {
+  opacity: 0;
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ar-ticks, .ar-coils, .ar-sweep, .ar-core, .ar-halo, .ar-coil,
+  .boot-reactor, .boot-line {
+    animation: none !important;
+  }
+  .boot-overlay { transition-duration: 0.01ms !important; }
+}
