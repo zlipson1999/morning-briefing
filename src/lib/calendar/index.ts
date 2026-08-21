@@ -1,4 +1,6 @@
 import { events as sampleEvents, type CalendarEvent } from "@/lib/data";
+import { googleCalendarToday } from "@/lib/providers/google/calendar";
+import { googleCredentials, googleIsConnected } from "@/lib/providers/google/auth";
 import { readStore } from "./store";
 import type { StoredEvent } from "./types";
 
@@ -7,10 +9,10 @@ export { upsertEvents, removeEvent, clearStore, readStore } from "./store";
 export { normalizePayload, normalizeEvent, addressFrom, kindFrom } from "./normalize";
 
 /**
- * Today's calendar, from whatever Zapier has pushed — falling back to the
- * sample day when nothing has arrived yet.
+ * Today's calendar, best source first: polled straight from Google once
+ * connected, else whatever Zapier has pushed, else the sample day.
  *
- * The fallback matters: a fresh clone with no Zap configured still has a
+ * The fallbacks matter: a fresh clone with nothing configured still has a
  * working dashboard, and `source` says which one you're looking at so the UI
  * never quietly presents sample data as real.
  */
@@ -50,17 +52,32 @@ function toCalendarEvent(event: StoredEvent): CalendarEvent {
 
 export type TodaysCalendar = {
   events: CalendarEvent[];
-  source: "zapier" | "sample";
-  /** When the store last received a push, or null if it never has. */
+  source: "google" | "zapier" | "sample";
+  /** For a push: when it last arrived. For a poll: just now. */
   syncedAt: number | null;
+  /** Google creds exist but nobody has clicked Connect yet. */
+  canConnectGoogle?: boolean;
 };
 
 export async function getTodaysCalendar(now: Date = new Date()): Promise<TodaysCalendar> {
+  try {
+    const google = await googleCalendarToday(now);
+    if (google !== null) {
+      return { events: google, source: "google", syncedAt: Date.now() };
+    }
+  } catch (error) {
+    // Connected but unreachable: fall through to the pushed store or the
+    // sample day — either is labelled, and labelled beats blank.
+    console.error("[calendar] google:", error);
+  }
+
+  const canConnectGoogle = googleCredentials() !== null && !(await googleIsConnected());
+
   const store = await readStore();
   const stored = Object.values(store.events);
 
   if (stored.length === 0) {
-    return { events: sampleEvents, source: "sample", syncedAt: null };
+    return { events: sampleEvents, source: "sample", syncedAt: null, canConnectGoogle };
   }
 
   const today = stored
@@ -68,7 +85,7 @@ export async function getTodaysCalendar(now: Date = new Date()): Promise<TodaysC
     .sort((a, b) => minutesOf(a.startIso) - minutesOf(b.startIso))
     .map(toCalendarEvent);
 
-  return { events: today, source: "zapier", syncedAt: store.updatedAt || null };
+  return { events: today, source: "zapier", syncedAt: store.updatedAt || null, canConnectGoogle };
 }
 
 /** Convenience for the paths that only want the events themselves. */

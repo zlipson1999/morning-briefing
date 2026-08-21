@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resetSealingKey, seal, sealingIsDurable, unseal } from "../seal";
+import { resetSealingKey, seal, sealingIsDurable, unseal } from "@/lib/seal";
 import { readPending, readSession, sealPending, sealSession } from "../session";
 
 const TOKEN = { key: "abc123", secret: "s3cr3t" };

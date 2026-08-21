@@ -1,4 +1,6 @@
 import { emails } from "@/lib/data";
+import { googleInbox } from "@/lib/providers/google/gmail";
+import { googleCredentials, googleIsConnected } from "@/lib/providers/google/auth";
 import { createPushStore } from "@/lib/push/store";
 import type { MailMessage, StoredMessage } from "./types";
 
@@ -66,16 +68,28 @@ function sampleMessages(): MailMessage[] {
 
 export type Inbox = {
   messages: MailMessage[];
-  source: "zapier" | "sample";
+  source: "google" | "zapier" | "sample";
   syncedAt: number | null;
+  canConnectGoogle?: boolean;
 };
 
 export async function getInbox(now: Date = new Date()): Promise<Inbox> {
+  try {
+    const google = await googleInbox(now);
+    if (google !== null) {
+      return { messages: google, source: "google", syncedAt: Date.now() };
+    }
+  } catch (error) {
+    console.error("[mail] google:", error);
+  }
+
+  const canConnectGoogle = googleCredentials() !== null && !(await googleIsConnected());
+
   const { items, updatedAt } = await store.read();
   const stored = Object.values(items);
 
   if (stored.length === 0) {
-    return { messages: sampleMessages(), source: "sample", syncedAt: null };
+    return { messages: sampleMessages(), source: "sample", syncedAt: null, canConnectGoogle };
   }
 
   const messages = stored
@@ -93,5 +107,5 @@ export async function getInbox(now: Date = new Date()): Promise<Inbox> {
       label: message.label,
     }));
 
-  return { messages, source: "zapier", syncedAt: updatedAt || null };
+  return { messages, source: "zapier", syncedAt: updatedAt || null, canConnectGoogle };
 }

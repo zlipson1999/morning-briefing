@@ -52,6 +52,7 @@ export default function TaskPanel({ className }: { className?: string }) {
           accent="#43cf9c"
           noun="task list"
           endpoint="/api/tasks/ingest"
+          canConnectGoogle={list.canConnectGoogle}
         />
       )}
 

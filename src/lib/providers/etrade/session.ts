@@ -1,4 +1,4 @@
-import { seal, unseal } from "./seal";
+import { seal, unseal } from "@/lib/seal";
 import type { Token } from "./oauth";
 
 /**

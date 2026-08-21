@@ -1,4 +1,6 @@
 import { initialTasks } from "@/lib/data";
+import { googleTasks } from "@/lib/providers/google/tasks";
+import { googleCredentials, googleIsConnected } from "@/lib/providers/google/auth";
 import { createPushStore } from "@/lib/push/store";
 import type { StoredTask, TaskItem } from "./types";
 
@@ -82,16 +84,28 @@ const RANK: Record<TaskItem["priority"], number> = { high: 0, medium: 1, low: 2 
 
 export type TaskList = {
   items: TaskItem[];
-  source: "zapier" | "sample";
+  source: "google" | "zapier" | "sample";
   syncedAt: number | null;
+  canConnectGoogle?: boolean;
 };
 
 export async function getTasks(now: Date = new Date()): Promise<TaskList> {
+  try {
+    const google = await googleTasks(now);
+    if (google !== null) {
+      return { items: google, source: "google", syncedAt: Date.now() };
+    }
+  } catch (error) {
+    console.error("[tasks] google:", error);
+  }
+
+  const canConnectGoogle = googleCredentials() !== null && !(await googleIsConnected());
+
   const { items, updatedAt } = await store.read();
   const stored = Object.values(items);
 
   if (stored.length === 0) {
-    return { items: sampleItems(), source: "sample", syncedAt: null };
+    return { items: sampleItems(), source: "sample", syncedAt: null, canConnectGoogle };
   }
 
   const list = stored
@@ -103,5 +117,5 @@ export async function getTasks(now: Date = new Date()): Promise<TaskList> {
       return RANK[a.priority] - RANK[b.priority];
     });
 
-  return { items: list, source: "zapier", syncedAt: updatedAt || null };
+  return { items: list, source: "zapier", syncedAt: updatedAt || null, canConnectGoogle };
 }

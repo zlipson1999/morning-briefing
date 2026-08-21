@@ -64,6 +64,7 @@ export default function EmailPanel({ className }: { className?: string }) {
           accent="#f0a63c"
           noun="inbox"
           endpoint="/api/email/ingest"
+          canConnectGoogle={inbox.canConnectGoogle}
         />
       )}
 

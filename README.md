@@ -122,11 +122,59 @@ Expiry is still enforced server-side rather than left to the cookie: a token
 minted on a previous US Eastern day is treated as dead, so you get a reconnect
 prompt instead of a 401.
 
-## Calendar, tasks and mail, pushed in from Zapier
+## Calendar, tasks and mail
 
-Rather than build three OAuth flows for one person, the three panels that used
-to be mock take a push. Point a Zap at each and they're real; until one arrives
-the panel shows sample data and says so.
+Two ways to make the three personal panels real, and the app prefers them in
+this order:
+
+1. **Connect Google** — Miles polls Google Calendar, Gmail and Google Tasks
+   directly. Free, nothing exposed to the internet, one-time consent. This is
+   the recommended path.
+2. **Zapier pushes** — works with non-Google sources (Todoist, Things), but
+   the webhook action needs a paid Zapier plan and a public URL.
+
+Until either is set up the panels show sample data and say so.
+
+### Connecting Google (recommended)
+
+One-time setup, about five minutes, no cost:
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com), create
+   a project (any name — "Miles" works).
+2. **APIs & Services → Library**: enable the **Google Calendar API**, the
+   **Gmail API**, and the **Google Tasks API**.
+3. **APIs & Services → OAuth consent screen**: choose **External**, fill in
+   the app name and your email, and add yourself under **Test users**. (Test
+   mode is fine forever for an app only you use.)
+4. **APIs & Services → Credentials → Create credentials → OAuth client ID**:
+   type **Web application**, and under *Authorised redirect URIs* add
+
+   ```
+   http://localhost:3000/api/google/callback
+   ```
+
+5. Copy the client ID and secret into `.env.local` as `GOOGLE_CLIENT_ID` and
+   `GOOGLE_CLIENT_SECRET`, set `SESSION_SECRET` if you haven't, restart.
+6. Any panel showing sample data now offers **Connect Google** — click it,
+   consent once, and the calendar, mail and task panels (and the briefing,
+   and leave-by) run on your real data.
+
+All three scopes are read-only: Miles can see your day, and cannot send mail,
+edit events or complete tasks, because it never asked to be able to. The only
+thing kept is the refresh token, sealed with AES-256-GCM under
+`SESSION_SECRET`, on your disk. Disconnect with
+`curl -X POST localhost:3000/api/google/disconnect`, and revoke Google's half
+at [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
+
+The mail panel asks Gmail for `is:important is:unread newer_than:2d` by
+default; set `GMAIL_SEARCH` to filter differently — `from:` lists of the
+people you actually answer work well. Filter hard: a firehose just rebuilds
+your inbox in a second place.
+
+### Zapier pushes (the alternative)
+
+For non-Google sources. Point a Zap at each ingest route and the panel is
+real; a Google connection takes precedence when both exist.
 
 In Zapier: your trigger → **Webhooks by Zapier**, POST with the header
 `Authorization: Bearer $CALENDAR_INGEST_TOKEN` to
@@ -433,7 +481,8 @@ src/
       news.ts       RSS/Atom/RDF parsing, per-feed error isolation
       weather.ts    Open-Meteo + Nominatim reverse geocoding
       etrade/       OAuth 1.0a signing, live client, mock provider
-      etrade/seal.ts  AES-256-GCM sealing for the session cookie
+      google/       direct polling: OAuth, Calendar, Gmail, Tasks — all read-only
+    seal.ts         AES-256-GCM sealing for stored secrets
       commute.ts    OSRM routing + Nominatim geocoding for the leave-by time
       news-rank.ts  ranks local headlines by consequence, falls back to recency
       quotes.ts     keyless Yahoo quotes over the configured watchlist
@@ -526,6 +575,10 @@ The suite covers the places bugs actually hide:
 - **Health checks** — that a feed answering 200 with no items is a failure, an
   unconfigured key is not, and a store nobody has pushed to is empty rather
   than broken.
+- **Google** — event, message and task mapping (all-day events, Zoom rooms
+  getting no address, Gmail's structural labels, Tasks' fake-midnight due
+  dates); and the grant store: sealed on disk and never plaintext, access
+  tokens cached, a revoked grant forgotten rather than retried forever.
 - **The wake word** — matched against what recognition actually produces:
   comma-happy greetings, the name mid-utterance, and near-misses ("forty miles
   away", "smiles") that must not trigger it; plus the command grammar and its

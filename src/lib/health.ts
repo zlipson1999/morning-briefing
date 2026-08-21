@@ -9,7 +9,8 @@ import { configuredBackend } from "@/lib/tts";
 import { claudeIsConfigured } from "@/lib/briefing/claude";
 import { credentials } from "@/lib/providers/etrade/client";
 import { ingestIsEnabled } from "@/lib/push/auth";
-import { sealingIsDurable } from "@/lib/providers/etrade/seal";
+import { googleCredentials, googleGet, googleIsConnected } from "@/lib/providers/google";
+import { sealingIsDurable } from "@/lib/seal";
 
 /**
  * Does any of this actually work?
@@ -149,12 +150,40 @@ export async function runHealthChecks(): Promise<Check[]> {
       return `${firstSymbol} at ${price}`;
     }),
 
+    checkGoogle(),
     checkStores(),
     checkVoice(),
     checkConfig(),
   ]);
 
   return checks.flat();
+}
+
+async function checkGoogle(): Promise<Check[]> {
+  if (!googleCredentials()) {
+    return [
+      off("Google", "Pushed in", "no client id — panels use Zapier pushes or sample data"),
+    ];
+  }
+  if (!(await googleIsConnected())) {
+    return [
+      {
+        name: "Google",
+        group: "Pushed in",
+        status: "off",
+        detail: "configured but not connected — click Connect Google on any panel",
+      },
+    ];
+  }
+  return [
+    await timed("Google", "Pushed in", async () => {
+      const body = await googleGet(
+        "https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=1",
+      );
+      if (!body) throw new Error("connected, but the token no longer works — reconnect");
+      return "connected — calendar, Gmail and Tasks polling live";
+    }),
+  ];
 }
 
 async function checkStores(): Promise<Check[]> {

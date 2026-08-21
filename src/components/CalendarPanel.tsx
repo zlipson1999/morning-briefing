@@ -85,6 +85,7 @@ export default function CalendarPanel({ className }: { className?: string }) {
           accent="#7c8cff"
           noun="day"
           endpoint="/api/calendar/ingest"
+          canConnectGoogle={calendar.canConnectGoogle}
         />
       )}
 

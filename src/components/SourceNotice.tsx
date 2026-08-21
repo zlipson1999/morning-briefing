@@ -21,14 +21,17 @@ export default function SourceNotice({
   accent,
   noun,
   endpoint,
+  canConnectGoogle = false,
   staleAfterMs = 24 * 60 * 60_000,
 }: {
-  source: "zapier" | "sample";
+  source: "google" | "zapier" | "sample";
   syncedAt: number | null;
   accent: string;
   /** What this panel shows, e.g. "day", "task list", "inbox". */
   noun: string;
   endpoint: string;
+  /** Google creds exist but nobody has clicked Connect. */
+  canConnectGoogle?: boolean;
   staleAfterMs?: number;
 }) {
   // Read through the shared clock rather than Date.now(): this renders during
@@ -36,12 +39,30 @@ export default function SourceNotice({
   // without making the component impure.
   const nowMs = useClock();
 
+  // Polled live just now — nothing to caveat, so say nothing.
+  if (source === "google") return null;
+
   if (source === "sample") {
     return (
       <Notice accent={accent}>
-        Showing a sample {noun}. Point a Zap at{" "}
-        <code className="rounded bg-ink-800 px-1 py-0.5 text-[11px]">{endpoint}</code> to see your
-        real one.
+        Showing a sample {noun}.{" "}
+        {canConnectGoogle ? (
+          <>
+            <a
+              href="/api/google/connect"
+              className="font-semibold underline underline-offset-2 hover:text-mist-100"
+              style={{ color: accent }}
+            >
+              Connect Google
+            </a>{" "}
+            to see your real one.
+          </>
+        ) : (
+          <>
+            Connect Google (see the README) or point a Zap at{" "}
+            <code className="rounded bg-ink-800 px-1 py-0.5 text-[11px]">{endpoint}</code>.
+          </>
+        )}
       </Notice>
     );
   }
