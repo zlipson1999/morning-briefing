@@ -126,11 +126,15 @@ function ConnectionNotice({ state }: { state: Extract<ConnectionState, { connect
       action: null,
     },
     "not-connected": {
-      text: "Live prices on your watchlist. Connect to load your real positions and cost basis.",
+      text: state.live
+        ? "Live prices on your watchlist. Connect to load your real positions and cost basis."
+        : "Showing sample positions — the quote service is unreachable. Connect for your real account.",
       action: "Connect E*TRADE",
     },
     expired: {
-      text: "E*TRADE signs you out at midnight Eastern every night. Watchlist prices are live meanwhile.",
+      text: state.live
+        ? "E*TRADE signs you out at midnight Eastern every night. Watchlist prices are live meanwhile."
+        : "E*TRADE signs you out at midnight Eastern, and the quote service is unreachable — these are sample positions.",
       action: "Reconnect",
     },
   }[state.reason];

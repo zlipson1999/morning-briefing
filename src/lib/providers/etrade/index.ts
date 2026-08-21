@@ -42,20 +42,28 @@ export async function readPortfolio(): Promise<
       };
     }
 
+    const fallback = await fallbackPortfolio();
     return {
-      ...(await fallbackPortfolio()),
+      ...fallback,
       state: {
         connected: false,
         mode: creds.mode,
         reason: session.status === "expired" ? "expired" : "not-connected",
-        live: true,
+        // Honest, not hopeful: true only when the watchlist actually loaded.
+        live: fallback.portfolio.mode === "watchlist",
       },
     };
   }
 
+  const fallback = await fallbackPortfolio();
   return {
-    ...(await fallbackPortfolio()),
-    state: { connected: false, mode: "watchlist", reason: "no-credentials", live: true },
+    ...fallback,
+    state: {
+      connected: false,
+      mode: fallback.portfolio.mode,
+      reason: "no-credentials",
+      live: fallback.portfolio.mode === "watchlist",
+    },
   };
 }
 
