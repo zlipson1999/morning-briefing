@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-950: #08090c;
+  --color-ink-900: #0b0d11;
+  --color-ink-850: #101319;
+  --color-ink-800: #151922;
+  --color-ink-700: #1d222d;
+  --color-ink-600: #2a313f;
+  --color-mist-400: #6f7887;
+  --color-mist-300: #939cab;
+  --color-mist-200: #c3cad6;
+  --color-mist-100: #e8ecf2;
+
+  --color-cal: #7c8cff;
+  --color-mail: #f0a63c;
+  --color-task: #43cf9c;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-ink-950);
+  color: var(--color-mist-100);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Soft aurora wash behind the whole page */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 34rem at 12% -8%, rgba(124, 140, 255, 0.13), transparent 62%),
+    radial-gradient(48rem 30rem at 92% 4%, rgba(240, 166, 60, 0.09), transparent 60%),
+    radial-gradient(52rem 34rem at 60% 108%, rgba(67, 207, 156, 0.07), transparent 62%);
+}
+
+::selection {
+  background: rgba(124, 140, 255, 0.32);
+}
+
+/* Scoped scrollbars for the panel bodies */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-600) transparent;
+}
+.scroll-slim::-webkit-scrollbar {
+  width: 8px;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: var(--color-ink-600);
+  border-radius: 999px;
+}
+.scroll-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
