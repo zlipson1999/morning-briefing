@@ -17,7 +17,7 @@ import type { BriefingSnapshot } from "./snapshot";
 
 const MODEL = "claude-opus-5";
 
-const SYSTEM = `You write one person's spoken morning briefing. It is read aloud by a
+const MORNING_SYSTEM = `You write one person's spoken morning briefing. It is read aloud by a
 speech engine the moment they sit down, so it has to work in the ear on a single pass.
 
 Voice and shape:
@@ -47,9 +47,32 @@ Do not narrate every section. A section with nothing notable in it should be lef
 entirely; the deterministic version already lists everything, so listing is not your job.
 End on the single most useful thing to do first.`;
 
+const NOW_SYSTEM = `You write a short spoken update for someone who already heard their full
+morning briefing today and has just opened the dashboard again.
+
+They know what today looks like. Do not tell them again. No weather forecast, no headlines,
+no run-through of the day's events, no greeting beyond none at all — start with the time.
+
+Answer one question: what now?
+
+- Lead with the time, and what they are in the middle of if anything.
+- Then anything that needs them to move or act within the next few hours: a leave-by time,
+  something starting soon, an overdue task, a flagged message that arrived recently.
+- Name what is next and how long away it is.
+- If nothing needs them, say so plainly and stop. A short update is the correct output when
+  nothing has changed; padding it is worse than silence.
+
+Two to four sentences, 40 to 90 words. Plain spoken prose — no markdown, no bullets, no
+lists. Second person, present tense. Numbers as a person would say them: "percent",
+"degrees", "dollars". Never invent a fact; if something is absent from the data it does not
+exist. Never mention the data, the panels, the app, or your own reasoning.`;
+
+export type BriefingMode = "morning" | "now";
+
 /** Regenerating word-for-word identical prose every 60s is pure waste. */
-function cacheKey(snapshot: BriefingSnapshot): string {
+function cacheKey(snapshot: BriefingSnapshot, mode: BriefingMode): string {
   const salient = {
+    mode,
     hour: snapshot.now.hour,
     // Ten-minute buckets: fresh enough for a leave-by time, coarse enough
     // that a page refresh doesn't bill a new generation.
@@ -70,17 +93,20 @@ export function claudeIsConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY);
 }
 
-export async function composeWithClaude(snapshot: BriefingSnapshot): Promise<string | null> {
+export async function composeWithClaude(
+  snapshot: BriefingSnapshot,
+  mode: BriefingMode = "morning",
+): Promise<string | null> {
   if (!claudeIsConfigured()) return null;
 
   try {
-    const { value } = await cached(cacheKey(snapshot), { ttlMs: 10 * 60_000 }, async () => {
+    const { value } = await cached(cacheKey(snapshot, mode), { ttlMs: 10 * 60_000 }, async () => {
       const client = new Anthropic();
 
       const response = await client.messages.create({
         model: MODEL,
         max_tokens: 1024,
-        system: SYSTEM,
+        system: mode === "now" ? NOW_SYSTEM : MORNING_SYSTEM,
         // A short synthesis over a small payload: medium effort is the right
         // trade against a briefing that has to be spoken within seconds.
         output_config: { effort: "medium" },
@@ -88,9 +114,12 @@ export async function composeWithClaude(snapshot: BriefingSnapshot): Promise<str
           {
             role: "user",
             content:
-              `Here is everything known about ${snapshot.userName}'s day. ` +
-              `Write the briefing.\n\n` +
-              JSON.stringify(snapshot, null, 2),
+              mode === "now"
+                ? `It is ${snapshot.now.time}. ${snapshot.userName} already heard the full ` +
+                  `briefing this morning and has just reopened the dashboard. Write the update.` +
+                  `\n\n${JSON.stringify(snapshot, null, 2)}`
+                : `Here is everything known about ${snapshot.userName}'s day. ` +
+                  `Write the briefing.\n\n${JSON.stringify(snapshot, null, 2)}`,
           },
         ],
       });

@@ -28,7 +28,7 @@ E*TRADE.
 | **Task list** | **live-wired** | Todoist, Google Tasks or Things over a Zapier push; sample data until one arrives. Overdue first, then by due date |
 | **Today's news** | **live** | Local and world headlines over curated RSS, with the local list ranked by what matters rather than what's newest. Every item carries its source and age |
 | **Weather** | **live** | Open-Meteo, in the header beside the date — click it for the full forecast |
-| **Portfolio** | **live-wired** | Real E*TRADE positions and day P/L once connected; sample data until then |
+| **Portfolio** | **live** | Keyless Yahoo quotes on the watchlist in config; real E*TRADE positions and cost basis once connected |
 | **Leave by** | **live** | Drive time to the next event with a real address, counted back to a walk-out-the-door time |
 
 Nothing here needs an API key to be useful: every panel falls back to sample
@@ -64,9 +64,30 @@ noticeably staler (a 2026 survey found a median item age around 6.6 days, with
 only ~7.6% under six hours). That's why it's never the primary, why every
 headline shows its age, and why anything over a day old is flagged amber.
 
+## The portfolio
+
+By default the panel shows live Yahoo quotes for the watchlist in
+`src/lib/config.ts` — no key, no account, nothing that expires, and it works
+before the market opens. Edit the list to make it yours:
+
+```ts
+export const WATCHLIST: Holding[] = [
+  { symbol: "SPY", speak: true },              // watched, not held
+  { symbol: "NVDA", shares: 40, speak: true }, // held, and read out loud
+  { symbol: "VTI", shares: 120, speak: false },// on screen, never spoken
+];
+```
+
+`shares` turns a watched symbol into a held one and puts it in the total.
+`speak: false` keeps it on screen but out of the spoken briefing — which is
+how you pick what gets talked about. A symbol you hold nothing of contributes
+no total, so the briefing reads its movement rather than a balance, and only
+when it actually moved by a percent or more.
+
 ## Connecting E*TRADE
 
-The portfolio panel shows sample positions until you add a key.
+Optional, and only worth it for real positions and cost basis. Yahoo covers
+the rest.
 
 1. Sign in at [developer.etrade.com](https://developer.etrade.com) with your
    E*TRADE account.
@@ -80,8 +101,10 @@ The portfolio panel shows sample positions until you add a key.
 
 **Expect to reconnect every morning.** E*TRADE is OAuth 1.0a, and its access
 tokens expire at midnight US Eastern — not a refresh-token flow, an actual
-re-login. There's also a two-hour inactivity timeout. For a dashboard you open
-once a day that's close to free, and the panel prompts you when it happens.
+re-login. There's also a two-hour inactivity timeout. This used to be the one
+thing on the dashboard that needed a daily human action; now it isn't, because
+an expired session falls back to live watchlist prices rather than to nothing.
+The panel prompts you, and works either way.
 
 Access tokens ride in an httpOnly cookie, sealed with AES-256-GCM under
 `SESSION_SECRET` before they leave the server. The browser holds ciphertext it
@@ -183,6 +206,22 @@ number.
   the only free window big enough for the overdue task, the drive that's in
   the rain. Sections with nothing notable are left out rather than narrated,
   and it ends on the single most useful thing to do first.
+
+### Once a day, then what now
+
+The full briefing is a morning thing. It plays once — on the first open of the
+day, behind the arc reactor — and after that every open gets a short update
+instead: the time, what you're in the middle of, what's next and how far away,
+and only the mail and tasks close enough to the clock to be actionable.
+
+None of the morning comes back. No weather forecast, no headlines, no
+run-through of the day: by 3pm you know what today looks like, and the only
+question left is *what now*. If nothing needs you, it says so and stops —
+padding a short update is worse than silence.
+
+The boot sequence is once a day too. A start-up animation you've already
+watched is a gate, not a flourish. `GET /api/briefing?mode=now` is the same
+thing over HTTP, and the replay button repeats whichever one you last heard.
 
 Both follow the same order: **local news, then tasks, then the inbox**, then
 the shape of the day, then weather, the portfolio, and at most one item from
@@ -297,6 +336,7 @@ src/
       etrade/seal.ts  AES-256-GCM sealing for the session cookie
       commute.ts    OSRM routing + Nominatim geocoding for the leave-by time
       news-rank.ts  ranks local headlines by consequence, falls back to recency
+      quotes.ts     keyless Yahoo quotes over the configured watchlist
     push/           shared ingest auth and the serialised JSON store
     calendar/       Zapier-fed schedule: normalise, persist, read today
     tasks/          Zapier-fed task list, sorted overdue-first
@@ -305,6 +345,7 @@ src/
     briefing/
       snapshot.ts   everything known about today, gathered once
       template.ts   the deterministic composer — always available
+      now.ts        the short "what now" update for every open after the first
       claude.ts     the Claude-authored composer — upgrade path, never required
   components/
     ArcReactor.tsx    generated SVG geometry, animated in CSS
@@ -376,6 +417,9 @@ The suite covers the places bugs actually hide:
   that gates leave-by, sender parsing, priority mapping, and a store that
   survives a restart, upserts by id, doesn't lose simultaneous writes, and
   distinguishes an empty real calendar from no calendar at all.
+- **The now-brief** — that it repeats none of the morning, scopes tasks and
+  mail to the current hour, counts down only inside the horizon, and never
+  doubles the period after a spoken time.
 - **Ingest auth** — bearer and header forms, a near-miss token rejected on
   length before comparison, and everything refused when no token is set.
 - **News ranking** — that a model's output is validated rather than trusted:

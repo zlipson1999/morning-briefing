@@ -1,5 +1,6 @@
 import { HOME_LOCATION } from "@/lib/config";
-import { composeWithClaude } from "@/lib/briefing/claude";
+import { composeWithClaude, type BriefingMode } from "@/lib/briefing/claude";
+import { composeNow } from "@/lib/briefing/now";
 import { gatherSnapshot } from "@/lib/briefing/snapshot";
 import { composeTemplate } from "@/lib/briefing/template";
 import { configuredBackend, speakBriefing } from "@/lib/tts";
@@ -33,8 +34,11 @@ export async function GET(request: Request) {
     place: params.get("place") ?? HOME_LOCATION.label,
   });
 
-  const written = params.get("author") === "template" ? null : await composeWithClaude(snapshot);
-  const text = written ?? composeTemplate(snapshot);
+  const mode: BriefingMode = params.get("mode") === "now" ? "now" : "morning";
+
+  const written =
+    params.get("author") === "template" ? null : await composeWithClaude(snapshot, mode);
+  const text = written ?? (mode === "now" ? composeNow(snapshot) : composeTemplate(snapshot));
 
   const spoken = await speakBriefing(text);
   if (!spoken) {
@@ -52,6 +56,7 @@ export async function GET(request: Request) {
       // would just mean a stale briefing after the data moves.
       "Cache-Control": "no-store",
       "X-Briefing-Author": written ? "claude" : "template",
+      "X-Briefing-Mode": mode,
       "X-Briefing-Voice": spoken.backend,
     },
   });

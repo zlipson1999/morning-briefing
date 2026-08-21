@@ -20,3 +20,33 @@ export const REFRESH_MS = {
   weather: 15 * 60_000,
   portfolio: 60_000,
 } as const;
+
+export type Holding = {
+  symbol: string;
+  /** Shares you hold. Leave at 0 to watch a symbol without owning it. */
+  shares?: number;
+  /**
+   * Whether the spoken briefing may mention it. Defaults to true — set false
+   * for the ones you want on screen but not read out.
+   */
+  speak?: boolean;
+};
+
+/**
+ * What the portfolio panel shows without an E*TRADE login.
+ *
+ * Quotes come from Yahoo with no key and no account, so this works every
+ * morning with no action from you. Edit the list: `shares` turns a watched
+ * symbol into a held one and puts it in the total, and `speak: false` keeps
+ * it on screen but out of the briefing.
+ *
+ * Connecting E*TRADE replaces all of this with your real positions.
+ */
+export const WATCHLIST: Holding[] = [
+  { symbol: "SPY", speak: true },
+  { symbol: "QQQ", speak: true },
+  { symbol: "NVDA", shares: 40, speak: true },
+  { symbol: "AAPL", shares: 65, speak: true },
+  { symbol: "VTI", shares: 120, speak: false },
+  { symbol: "MSFT", shares: 22, speak: false },
+];

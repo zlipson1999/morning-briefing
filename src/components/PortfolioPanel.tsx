@@ -29,6 +29,8 @@ export default function PortfolioPanel({ className }: { className?: string }) {
   const portfolio = payload?.portfolio;
   const connection = payload?.state;
   const up = (portfolio?.dayChange ?? 0) >= 0;
+  // A watchlist with no shares in it has no total to show — only movements.
+  const holdsShares = (portfolio?.totalValue ?? 0) > 0;
 
   return (
     <Panel
@@ -42,24 +44,27 @@ export default function PortfolioPanel({ className }: { className?: string }) {
       error={state.status === "error" ? state.message : null}
       onRetry={state.refresh}
       stale={state.status === "ready" && state.stale}
+      degraded={portfolio?.degraded}
     >
       {portfolio && (
         <>
           {connection && !connection.connected && <ConnectionNotice state={connection} />}
 
-          <div className="px-3 pt-1 pb-4">
-            <p className="font-mono text-3xl font-semibold tracking-tight text-mist-100 tabular-nums">
-              {money(portfolio.totalValue)}
-            </p>
-            <p
-              className="mt-1 flex items-center gap-2 text-sm font-medium tabular-nums"
-              style={{ color: up ? UP : DOWN }}
-            >
-              <span>{signed(portfolio.dayChange)}</span>
-              <span className="opacity-70">{pct(portfolio.dayChangePct)}</span>
-              <span className="text-[11px] tracking-wide text-mist-400 uppercase">today</span>
-            </p>
-          </div>
+          {holdsShares && (
+            <div className="px-3 pt-1 pb-4">
+              <p className="font-mono text-3xl font-semibold tracking-tight text-mist-100 tabular-nums">
+                {money(portfolio.totalValue)}
+              </p>
+              <p
+                className="mt-1 flex items-center gap-2 text-sm font-medium tabular-nums"
+                style={{ color: up ? UP : DOWN }}
+              >
+                <span>{signed(portfolio.dayChange)}</span>
+                <span className="opacity-70">{pct(portfolio.dayChangePct)}</span>
+                <span className="text-[11px] tracking-wide text-mist-400 uppercase">today</span>
+              </p>
+            </div>
+          )}
 
           <ul className="flex flex-col gap-1">
             {portfolio.positions.map((position) => {
@@ -72,13 +77,15 @@ export default function PortfolioPanel({ className }: { className?: string }) {
                         {position.symbol}
                       </span>
                       <span className="block truncate text-[11px] text-mist-400">
-                        {position.quantity} sh · {money(position.lastPrice)}
+                        {position.quantity > 0
+                          ? `${position.quantity} sh · ${money(position.lastPrice)}`
+                          : `${money(position.lastPrice)} · watching`}
                       </span>
                     </span>
 
                     <span className="shrink-0 text-right">
                       <span className="block text-sm font-medium text-mist-200 tabular-nums">
-                        {money(position.marketValue)}
+                        {position.quantity > 0 ? money(position.marketValue) : signed(position.dayChange)}
                       </span>
                       <span
                         className="block text-[11px] font-medium tabular-nums"
@@ -113,15 +120,17 @@ export default function PortfolioPanel({ className }: { className?: string }) {
 function ConnectionNotice({ state }: { state: Extract<ConnectionState, { connected: false }> }) {
   const copy = {
     "no-credentials": {
-      text: "Showing sample positions. Add your E*TRADE consumer key to .env.local to connect a real account.",
+      text: state.live
+        ? "Live prices on the watchlist in src/lib/config.ts. Add an E*TRADE key to see your real account instead."
+        : "Showing sample positions — the quote service is unreachable.",
       action: null,
     },
     "not-connected": {
-      text: "Showing sample positions. Connect to load your real account.",
+      text: "Live prices on your watchlist. Connect to load your real positions and cost basis.",
       action: "Connect E*TRADE",
     },
     expired: {
-      text: "E*TRADE signs you out at midnight Eastern every night. Reconnect for today's numbers.",
+      text: "E*TRADE signs you out at midnight Eastern every night. Watchlist prices are live meanwhile.",
       action: "Reconnect",
     },
   }[state.reason];

@@ -39,7 +39,7 @@ describe("composeTemplate", () => {
   it("says symbols as words, since it's read aloud", () => {
     const text = composeTemplate(
       snapshot({
-        portfolio: { connected: true, totalValue: 128_400, dayChangePct: -1.24, movers: [] },
+        portfolio: { connected: true, mode: "live", totalValue: 128_400, dayChangePct: -1.24, movers: [] },
       }),
     );
     expect(text).toContain("down 1.2 percent");
@@ -48,11 +48,61 @@ describe("composeTemplate", () => {
     expect(text).not.toContain("$");
   });
 
-  it("stays quiet about a portfolio that isn't connected", () => {
+  it("stays quiet when there is no real money data at all", () => {
     const text = composeTemplate(
-      snapshot({ portfolio: { connected: false, totalValue: 1, dayChangePct: 9, movers: [] } }),
+      snapshot({ portfolio: { connected: false, mode: "mock", totalValue: 1, dayChangePct: 9, movers: [] } }),
     );
     expect(text).not.toContain("portfolio");
+    expect(text).not.toContain("watchlist");
+  });
+
+  /**
+   * A watchlist with no shares in it has no total worth saying — but a
+   * symbol that actually moved does.
+   */
+  it("reads watchlist movers rather than a total you don't have", () => {
+    const text = composeTemplate(
+      snapshot({
+        portfolio: {
+          connected: false,
+          mode: "watchlist",
+          totalValue: 0,
+          dayChangePct: 0,
+          movers: [
+            { symbol: "NVDA", dayChangePct: -3.4 },
+            { symbol: "SPY", dayChangePct: 0.2 },
+          ],
+        },
+      }),
+    );
+
+    expect(text).toContain("On your watchlist: NVDA down 3.4 percent.");
+    // 0.2% is noise, not news.
+    expect(text).not.toContain("SPY");
+  });
+
+  it("says nothing when the whole watchlist is flat", () => {
+    const text = composeTemplate(
+      snapshot({
+        portfolio: {
+          connected: false,
+          mode: "watchlist",
+          totalValue: 0,
+          dayChangePct: 0,
+          movers: [{ symbol: "SPY", dayChangePct: 0.1 }],
+        },
+      }),
+    );
+    expect(text).not.toContain("watchlist");
+  });
+
+  it("calls it holdings rather than a portfolio when it isn't your account", () => {
+    const text = composeTemplate(
+      snapshot({
+        portfolio: { connected: false, mode: "watchlist", totalValue: 42_000, dayChangePct: 1.1, movers: [] },
+      }),
+    );
+    expect(text).toContain("Your holdings up 1.1 percent today, at 42,000 dollars.");
   });
 
   it("counts the day's remaining events and names the next one", () => {
@@ -73,6 +123,8 @@ describe("composeTemplate", () => {
     );
     expect(text).toContain("2 events left today");
     expect(text).toContain("Next up is Design review at 11 a.m.");
+    // A spoken time already ends in a period; two reads as a stumble.
+    expect(text).not.toContain("..");
   });
 
   it("calls out a calendar conflict", () => {
@@ -209,9 +261,9 @@ describe("composeTemplate", () => {
         inbox: {
           unread: 3,
           messages: [
-            { sender: "Priya Raghavan", subject: "a", preview: "", important: true, label: "Work" },
-            { sender: "Sofia Lindqvist", subject: "b", preview: "", important: true, label: "Work" },
-            { sender: "GitHub", subject: "c", preview: "", important: false, label: "Updates" },
+            { sender: "Priya Raghavan", subject: "a", preview: "", important: true, label: "Work", receivedAt: null },
+            { sender: "Sofia Lindqvist", subject: "b", preview: "", important: true, label: "Work", receivedAt: null },
+            { sender: "GitHub", subject: "c", preview: "", important: false, label: "Updates", receivedAt: null },
           ],
         },
       }),

@@ -1,11 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { hasBriefedToday, markBriefedToday } from "@/lib/briefedToday";
 
 export type VoiceState = "idle" | "loading" | "speaking" | "blocked" | "unsupported";
 
 /** Which engine is actually talking, once one is. */
 export type VoiceSource = "server" | "browser" | null;
+
+/**
+ * "morning" is the full briefing, played once a day. "now" is the short
+ * update every open after that: the time, what's next, and only what's
+ * actionable in the moment.
+ */
+export type SpeakMode = "morning" | "now";
 
 const MUTE_KEY = "mb:voice-muted";
 
@@ -86,6 +94,8 @@ export function useBriefingVoice() {
   const startedRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  // What the replay button should repeat, and what to mark once it plays.
+  const modeRef = useRef<SpeakMode>("morning");
 
   const muted = useSyncExternalStore(subscribeMuted, () => muteSnapshot, () => false);
   const supported = useSyncExternalStore(subscribeSupport, canSpeak, () => true);
@@ -143,10 +153,10 @@ export function useBriefingVoice() {
    * which is a different thing entirely: the audio exists, the browser just
    * wants a gesture first, so that becomes `blocked` rather than a fallback.
    */
-  const playServerAudio = useCallback(async (): Promise<boolean> => {
+  const playServerAudio = useCallback(async (mode: SpeakMode): Promise<boolean> => {
     let blob: Blob;
     try {
-      const res = await fetch("/api/briefing/audio");
+      const res = await fetch(`/api/briefing/audio?mode=${mode}`);
       // 501 means no backend is configured — an expected state, not a failure.
       if (!res.ok) return false;
       blob = await res.blob();
@@ -164,6 +174,7 @@ export function useBriefingVoice() {
     audio.onplaying = () => {
       setVoiceSource("server");
       setState("speaking");
+      if (modeRef.current === "morning") markBriefedToday();
     };
     audio.onended = () => {
       setState("idle");
@@ -220,6 +231,7 @@ export function useBriefingVoice() {
         spokeAnything = true;
         setVoiceSource("browser");
         setState("speaking");
+        if (modeRef.current === "morning") markBriefedToday();
       };
       if (index === chunks.length - 1) {
         utterance.onend = () => setState("idle");
@@ -247,7 +259,7 @@ export function useBriefingVoice() {
    * nothing but the better voice.
    */
   const speak = useCallback(
-    async (options: { force?: boolean } = {}) => {
+    async (options: { force?: boolean; mode?: SpeakMode } = {}) => {
       if (!canSpeak()) {
         setState("unsupported");
         return;
@@ -256,11 +268,17 @@ export function useBriefingVoice() {
       if (startedRef.current && !options.force) return;
       startedRef.current = true;
 
+      // An explicit mode wins; otherwise the replay button repeats whatever
+      // was last played, and the automatic open decides by the day's history.
+      const mode: SpeakMode =
+        options.mode ?? (options.force ? modeRef.current : hasBriefedToday() ? "now" : "morning");
+      modeRef.current = mode;
+
       setState("loading");
 
       let text: string;
       try {
-        const res = await fetch("/api/briefing");
+        const res = await fetch(`/api/briefing?mode=${mode}`);
         if (!res.ok) throw new Error(String(res.status));
         text = await res.text();
       } catch {
@@ -268,7 +286,7 @@ export function useBriefingVoice() {
         return;
       }
 
-      if (await playServerAudio()) return;
+      if (await playServerAudio(mode)) return;
       speakLocally(text);
     },
     [playServerAudio, speakLocally],

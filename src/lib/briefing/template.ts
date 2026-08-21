@@ -1,4 +1,5 @@
 import { describeUv } from "@/lib/providers/weather";
+import { endSentence } from "./prose";
 import type { BriefingSnapshot } from "./snapshot";
 
 /**
@@ -16,6 +17,35 @@ import type { BriefingSnapshot } from "./snapshot";
 
 /** Inside this many minutes, leaving is the most important thing you can hear. */
 const URGENT_LEAVE_MINUTES = 45;
+
+function portfolioLine(portfolio: BriefingSnapshot["portfolio"]): string | null {
+  if (!portfolio || portfolio.mode === "mock") return null;
+
+  if (portfolio.totalValue > 0) {
+    const direction = portfolio.dayChangePct >= 0 ? "up" : "down";
+    const label = portfolio.connected ? "Your portfolio" : "Your holdings";
+    return (
+      `${label} ${direction} ${Math.abs(portfolio.dayChangePct).toFixed(1)} percent today, at ` +
+      `${Math.round(portfolio.totalValue).toLocaleString()} dollars.`
+    );
+  }
+
+  // Only bother with a mover that actually moved.
+  const notable = portfolio.movers.filter((mover) => Math.abs(mover.dayChangePct) >= 1);
+  if (notable.length === 0) return null;
+
+  return (
+    "On your watchlist: " +
+    notable
+      .map(
+        (mover) =>
+          `${mover.symbol} ${mover.dayChangePct >= 0 ? "up" : "down"} ` +
+          `${Math.abs(mover.dayChangePct).toFixed(1)} percent`,
+      )
+      .join(", ") +
+    "."
+  );
+}
 
 export function composeTemplate(snapshot: BriefingSnapshot): string {
   const lines: string[] = [];
@@ -79,9 +109,11 @@ export function composeTemplate(snapshot: BriefingSnapshot): string {
     const next = upcoming[0];
     const window = schedule.freeWindows[0];
     lines.push(
-      `You have ${schedule.remaining} ${schedule.remaining === 1 ? "event" : "events"} left today. ` +
-        `Next up is ${next.title} at ${next.start}.` +
-        (window ? ` Your first real gap is ${window.from} to ${window.to}.` : ""),
+      endSentence(
+        `You have ${schedule.remaining} ${schedule.remaining === 1 ? "event" : "events"} left today. ` +
+          endSentence(`Next up is ${next.title} at ${next.start}`) +
+          (window ? ` Your first real gap is ${window.from} to ${window.to}` : ""),
+      ),
     );
   }
 
@@ -116,14 +148,10 @@ export function composeTemplate(snapshot: BriefingSnapshot): string {
     lines.push(parts.join(" "));
   }
 
-  // 6. Portfolio.
-  if (portfolio?.connected) {
-    lines.push(
-      `Your portfolio is ${portfolio.dayChangePct >= 0 ? "up" : "down"} ` +
-        `${Math.abs(portfolio.dayChangePct).toFixed(1)} percent today, at ` +
-        `${Math.round(portfolio.totalValue).toLocaleString()} dollars.`,
-    );
-  }
+  // 6. Money. A real account gets a total; a watchlist gets the movers,
+  // since a list of prices you don't hold isn't worth a sentence.
+  const money = portfolioLine(portfolio);
+  if (money) lines.push(money);
 
   // 7. The wider world, last.
   if (news.global.length) {

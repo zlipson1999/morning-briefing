@@ -1,5 +1,6 @@
 import { HOME_LOCATION } from "@/lib/config";
-import { claudeIsConfigured, composeWithClaude } from "@/lib/briefing/claude";
+import { claudeIsConfigured, composeWithClaude, type BriefingMode } from "@/lib/briefing/claude";
+import { composeNow } from "@/lib/briefing/now";
 import { gatherSnapshot } from "@/lib/briefing/snapshot";
 import { composeTemplate } from "@/lib/briefing/template";
 
@@ -18,6 +19,11 @@ export const dynamic = "force-dynamic";
  * rather than listed. Without one — or if that call fails — the deterministic
  * composer answers instead, so the endpoint has no failure mode where you get
  * nothing. `X-Briefing-Author` says which one you got.
+ *
+ * `?mode=now` returns the short update the app plays on every open after the
+ * first one today: the time, what's running or next, and only the mail and
+ * tasks close enough to the clock to matter. The morning briefing already
+ * covered the day, so this one doesn't.
  *
  * `?format=json` returns the underlying snapshot instead of prose, for
  * anything that would rather render the data than hear it.
@@ -39,14 +45,18 @@ export async function GET(request: Request) {
     return Response.json(snapshot, { headers: { "Cache-Control": "no-store" } });
   }
 
-  const written = params.get("author") === "template" ? null : await composeWithClaude(snapshot);
-  const text = written ?? composeTemplate(snapshot);
+  const mode: BriefingMode = params.get("mode") === "now" ? "now" : "morning";
+
+  const written =
+    params.get("author") === "template" ? null : await composeWithClaude(snapshot, mode);
+  const text = written ?? (mode === "now" ? composeNow(snapshot) : composeTemplate(snapshot));
 
   return new Response(text, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
       "X-Briefing-Author": written ? "claude" : claudeIsConfigured() ? "template-fallback" : "template",
+      "X-Briefing-Mode": mode,
     },
   });
 }

@@ -1,4 +1,4 @@
-import { HOME_LOCATION, USER_NAME } from "@/lib/config";
+import { HOME_LOCATION, USER_NAME, WATCHLIST } from "@/lib/config";
 import { getTodaysEvents } from "@/lib/calendar";
 import { getInbox } from "@/lib/mail";
 import { getTasks } from "@/lib/tasks";
@@ -38,7 +38,15 @@ export type BriefingSnapshot = {
   };
   inbox: {
     unread: number;
-    messages: { sender: string; subject: string; preview: string; important: boolean; label: string }[];
+    messages: {
+      sender: string;
+      subject: string;
+      preview: string;
+      important: boolean;
+      label: string;
+      /** Epoch ms, or null for sample data with no real timestamp. */
+      receivedAt: number | null;
+    }[];
   };
   tasks: {
     open: number;
@@ -46,9 +54,13 @@ export type BriefingSnapshot = {
     items: { title: string; note?: string; due: string; priority: string; project: string; overdue: boolean }[];
   };
   portfolio: {
+    /** True only for a real brokerage account. */
     connected: boolean;
+    /** "live"/"sandbox" is your account; "watchlist" is Yahoo; "mock" is neither. */
+    mode: "watchlist" | "mock" | "sandbox" | "live";
     totalValue: number;
     dayChangePct: number;
+    /** Only the symbols you've allowed the briefing to mention. */
     movers: { symbol: string; dayChangePct: number }[];
   } | null;
   news: {
@@ -59,6 +71,11 @@ export type BriefingSnapshot = {
   };
   commute: Commute | null;
 };
+
+/** Symbols the briefing is allowed to mention, from the watchlist config. */
+const spokenSymbols = new Set(
+  WATCHLIST.filter((holding) => holding.speak !== false).map((holding) => holding.symbol.toUpperCase()),
+);
 
 const toMinutes = (hhmm: string) => {
   const [hours, minutes] = hhmm.split(":").map(Number);
@@ -135,9 +152,12 @@ export async function gatherSnapshot({
     readPortfolio()
       .then(({ portfolio: p, state }) => ({
         connected: state.connected,
+        mode: p.mode,
         totalValue: p.totalValue,
         dayChangePct: p.dayChangePct,
         movers: [...p.positions]
+          // On the watchlist, `speak: false` means on screen but not read out.
+          .filter((position) => p.mode !== "watchlist" || spokenSymbols.has(position.symbol.toUpperCase()))
           .sort((a, b) => Math.abs(b.dayChangePct) - Math.abs(a.dayChangePct))
           .slice(0, 3)
           .map(({ symbol, dayChangePct }) => ({ symbol, dayChangePct })),
@@ -193,6 +213,7 @@ export async function gatherSnapshot({
         preview: message.preview,
         important: message.important,
         label: message.label,
+        receivedAt: message.receivedAt,
       })),
     },
     tasks: {
