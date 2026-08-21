@@ -1,6 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
 import { cached, fetchWithTimeout } from "@/lib/cache";
 import { GLOBAL_FEEDS, googleNewsFeedFor, localFeedsFor, type Feed } from "@/lib/feeds";
+import { rankByImportance } from "./news-rank";
 
 export type Headline = {
   id: string;
@@ -15,6 +16,12 @@ export type NewsBundle = {
   local: Headline[];
   global: Headline[];
   place: string;
+  /**
+   * True when the local list was ordered by importance rather than by
+   * timestamp. The panel says so, because otherwise a better sort is
+   * indistinguishable from the old one.
+   */
+  curatedLocal: boolean;
 };
 
 const parser = new XMLParser({
@@ -160,10 +167,16 @@ export async function getNews(place: string): Promise<{
       throw new Error("Every news source failed");
     }
 
+    // Deduped and recency-ordered first, so the ranker sees a clean, bounded
+    // candidate list — and so the fallback is already the old behaviour.
+    const localCandidates = rank(local, 24);
+    const ranked = await rankByImportance(localCandidates, place, 6);
+
     return {
-      local: rank(local, 6),
+      local: ranked.headlines,
       global: rank(global, 8),
       place,
+      curatedLocal: ranked.curated,
     } satisfies NewsBundle;
   });
 

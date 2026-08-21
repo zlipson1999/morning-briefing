@@ -1,5 +1,7 @@
 import { HOME_LOCATION, USER_NAME } from "@/lib/config";
-import { emails, events, initialTasks } from "@/lib/data";
+import { emails, initialTasks } from "@/lib/data";
+import { getTodaysEvents } from "@/lib/calendar";
+import type { CalendarEvent } from "@/lib/data";
 import { nextCommute, type Commute } from "@/lib/providers/commute";
 import { getNews } from "@/lib/providers/news";
 import { getWeather, type Weather } from "@/lib/providers/weather";
@@ -48,7 +50,12 @@ export type BriefingSnapshot = {
     dayChangePct: number;
     movers: { symbol: string; dayChangePct: number }[];
   } | null;
-  news: { local: { title: string; source: string }[]; global: { title: string; source: string }[] };
+  news: {
+    local: { title: string; source: string }[];
+    global: { title: string; source: string }[];
+    /** True when the local list was ordered by importance rather than recency. */
+    curatedLocal: boolean;
+  };
   commute: Commute | null;
 };
 
@@ -68,7 +75,7 @@ const spoken = (hhmm: string) => {
  * Gaps worth naming. Anything shorter than half an hour isn't a window you
  * can put work in, it's the walk between two meetings.
  */
-function freeWindowsAfter(nowMinutes: number) {
+function freeWindowsAfter(events: CalendarEvent[], nowMinutes: number) {
   const remaining = events
     .filter((event) => toMinutes(event.end) > nowMinutes)
     .sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
@@ -83,7 +90,7 @@ function freeWindowsAfter(nowMinutes: number) {
   return windows;
 }
 
-function conflictsAfter(nowMinutes: number) {
+function conflictsAfter(events: CalendarEvent[], nowMinutes: number) {
   const remaining = events.filter((event) => toMinutes(event.end) > nowMinutes);
   const clashes: { a: string; b: string }[] = [];
 
@@ -115,6 +122,10 @@ export async function gatherSnapshot({
 } = {}): Promise<BriefingSnapshot> {
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
+  // The calendar is read first: the commute depends on it, and everything
+  // else can be fetched alongside.
+  const events = await getTodaysEvents(now);
+
   const [weather, portfolio, news, commute] = await Promise.all([
     getWeather(latitude, longitude, place)
       .then((result) => result.value)
@@ -134,8 +145,9 @@ export async function gatherSnapshot({
       .then(({ value }) => ({
         local: value.local.slice(0, 4).map(({ title, source }) => ({ title, source })),
         global: value.global.slice(0, 4).map(({ title, source }) => ({ title, source })),
+        curatedLocal: value.curatedLocal,
       }))
-      .catch(() => ({ local: [], global: [] })),
+      .catch(() => ({ local: [], global: [], curatedLocal: false })),
     nextCommute(events, nowMinutes, { latitude, longitude }).catch(() => null),
   ]);
 
@@ -168,8 +180,8 @@ export async function gatherSnapshot({
               ? "now"
               : "upcoming",
       })),
-      freeWindows: freeWindowsAfter(nowMinutes),
-      conflicts: conflictsAfter(nowMinutes),
+      freeWindows: freeWindowsAfter(events, nowMinutes),
+      conflicts: conflictsAfter(events, nowMinutes),
     },
     inbox: {
       unread: emails.length,

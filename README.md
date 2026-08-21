@@ -23,16 +23,16 @@ E*TRADE.
 
 | Panel | Source | Behaviour |
 | --- | --- | --- |
-| **Today's schedule** | mock | Finished events dim and strike through, the current one is tagged `NOW` and the next `NEXT`, header counts what's left |
+| **Today's schedule** | **live-wired** | Real Google Calendar over a Zapier push; a sample day until one arrives. Finished events dim and strike through, the current one is tagged `NOW` and the next `NEXT` |
 | **Unread email** | mock | Click to toggle read; the unread count follows. Persists for the day |
 | **Task list** | mock | Tick to complete; live progress bar and overdue callout. Persists for the day |
-| **Today's news** | **live** | Local and world headlines over curated RSS. Every item carries its source and age |
+| **Today's news** | **live** | Local and world headlines over curated RSS, with the local list ranked by what matters rather than what's newest. Every item carries its source and age |
 | **Weather** | **live** | Open-Meteo, in the header beside the date — click it for the full forecast |
 | **Portfolio** | **live-wired** | Real E*TRADE positions and day P/L once connected; sample data until then |
 | **Leave by** | **live** | Drive time to the next event with a real address, counted back to a walk-out-the-door time |
 
-Calendar, email and tasks still run on the typed mock arrays in
-`src/lib/data.ts` — swap them for real APIs the same way the live panels work.
+Email and tasks still run on the typed sample arrays in `src/lib/data.ts` —
+swap them for real APIs the same way the live panels work.
 
 ## Configuration
 
@@ -45,6 +45,14 @@ as you grant geolocation.
 weather *and* the local news: the coordinates are reverse-geocoded server-side
 through `/api/place`, and the resulting locality is what the news panel is
 keyed by.
+
+**Local news is ranked, not just sorted.** With `ANTHROPIC_API_KEY` set, the
+local headlines are read and ordered by consequence to someone who lives there
+— storms, closures, outages and council votes above sports recaps and "best
+of" roundups, which get dropped entirely. Recency becomes the tiebreaker
+rather than the sort. The panel shows a `RANKED` chip when that ran, because
+otherwise a better sort is indistinguishable from the old one. Without a key,
+or on any failure, it falls back to the recency order.
 
 News sources live in `src/lib/feeds.ts`. **Adding your own city's outlet there
 is the single highest-value edit in this repo** — a real local newsroom's feed
@@ -87,6 +95,37 @@ Expiry is still enforced server-side rather than left to the cookie: a token
 minted on a previous US Eastern day is treated as dead, so you get a reconnect
 prompt instead of a 401.
 
+## The calendar, pushed in from Zapier
+
+Rather than build a Google OAuth flow for one person, the schedule panel takes
+a push. Point a Zap at it and the calendar is real; until one arrives the panel
+shows a sample day and says so.
+
+In Zapier: **Google Calendar** trigger → **Webhooks by Zapier**, POST to
+
+```
+http://<machine>.<tailnet>.ts.net:3000/api/calendar/ingest
+```
+
+with the header `Authorization: Bearer $CALENDAR_INGEST_TOKEN` and the event as
+the payload. A `DELETE ?id=<event id>` on the same route handles a deletion Zap.
+
+This is the only endpoint in the app that writes, so it is the only one with a
+secret — and with `CALENDAR_INGEST_TOKEN` unset it refuses everything rather
+than accepting anonymous writes. A disabled feature is a better default than an
+open one, even on a tailnet.
+
+Zapier does not send one shape. Nested (`start.dateTime`), flattened
+(`start__dateTime`) and renamed (`start_time`) fields all parse, attendees
+arrive as strings or as Google's objects, a bare `date` becomes an all-day
+event, and a missing end time defaults to an hour. An event with no title or no
+start is rejected rather than guessed at; everything else in the batch still
+lands. The response echoes back what was understood, so a Zap's test run shows
+you whether the location became a drivable address.
+
+Events are kept in `.data/calendar.json` — upserted by id, written through one
+queue so simultaneous pushes can't interleave, and pruned after two days.
+
 ## Leave-by time
 
 Above the panels, and only when there's something to drive to, is the one
@@ -96,9 +135,11 @@ walk out the door for the next event you can't attend from a desk.
 It goes green, then amber inside forty-five minutes, then pink once you're
 late — the loudest thing on the screen at exactly the moment it should be.
 
-Events qualify by having a real street address. A Zoom call has a `location`
-but no `address`, and that distinction is the whole signal: the panel would
-rather show nothing than guess where "Conf Rm 4B" is.
+Events qualify by having a real street address, which is inferred from the
+calendar's own location field. "500 S Australian Ave, West Palm Beach" is
+drivable; "Conf Rm 4B", a Zoom link, "Remote" and "TBD" are not, and produce
+nothing rather than a guess. That test errs toward silence on purpose — a
+wrong address routes you somewhere you aren't going.
 
 Routing is [OSRM](https://project-osrm.org)'s public server and geocoding is
 Nominatim — no key, no account, no quota. The tradeoff is that OSRM has no
@@ -232,6 +273,8 @@ src/
       etrade/       OAuth 1.0a signing, live client, mock provider
       etrade/seal.ts  AES-256-GCM sealing for the session cookie
       commute.ts    OSRM routing + Nominatim geocoding for the leave-by time
+      news-rank.ts  ranks local headlines by consequence, falls back to recency
+    calendar/       the Zapier-fed store: normalise, persist, read today
     tts/            server-side speech: Piper or ElevenLabs, cached per briefing
     briefing/
       snapshot.ts   everything known about today, gathered once
@@ -302,6 +345,13 @@ The suite covers the places bugs actually hide:
   every upstream dead, speaks symbols as words, stays quiet about a portfolio
   that isn't connected, holds the local-news-first order, and hoists an
   imminent leave-by above it.
+- **Calendar ingest** — every Zapier field shape, the address test that gates
+  leave-by, and a store that survives a restart, upserts by id, doesn't lose
+  simultaneous writes, and distinguishes an empty real calendar from no
+  calendar at all.
+- **News ranking** — that a model's output is validated rather than trusted:
+  out-of-range, duplicate and non-numeric positions are ignored, a chatty or
+  fenced reply still parses, and everything else falls back to recency.
 - **Speech backends** — backend selection and precedence, that the key travels
   as a header and never in a URL, that identical text is synthesised once, and
   that every failure path returns null so the browser engine takes over.

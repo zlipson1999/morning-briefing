@@ -11,7 +11,7 @@ function snapshot(overrides: Partial<BriefingSnapshot> = {}): BriefingSnapshot {
     inbox: { unread: 0, messages: [] },
     tasks: { open: 0, done: 0, items: [] },
     portfolio: null,
-    news: { local: [], global: [] },
+    news: { local: [], global: [], curatedLocal: false },
     commute: null,
     ...overrides,
   };
@@ -136,6 +136,7 @@ describe("composeTemplate", () => {
         news: {
           local: [{ title: "Lantana bridge closes for repairs", source: "Palm Beach Post" }],
           global: [{ title: "Somewhere far away", source: "BBC World" }],
+          curatedLocal: true,
         },
         tasks: {
           open: 1,
@@ -174,6 +175,7 @@ describe("composeTemplate", () => {
     const news = {
       local: [{ title: "Lantana bridge closes for repairs", source: "Palm Beach Post" }],
       global: [],
+      curatedLocal: true,
     };
 
     const urgent = composeTemplate(snapshot({ commute, news }));

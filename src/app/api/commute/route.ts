@@ -1,5 +1,5 @@
 import { HOME_LOCATION } from "@/lib/config";
-import { events } from "@/lib/data";
+import { getTodaysEvents } from "@/lib/calendar";
 import { describeError, fail, ok } from "@/lib/panel";
 import { nextCommute, type Commute } from "@/lib/providers/commute";
 
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
   try {
     const commute = await nextCommute(
-      events,
+      await getTodaysEvents(),
       Number.isFinite(nowMinutes)
         ? nowMinutes
         : fallbackNow.getHours() * 60 + fallbackNow.getMinutes(),
