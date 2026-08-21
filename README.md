@@ -1,7 +1,8 @@
 # Morning Briefing
 
 A dark, single-screen dashboard for the start of the day: schedule, inbox,
-tasks, news, weather and portfolio, all visible without scrolling.
+tasks, news, weather and portfolio, all visible without scrolling — plus the
+one line that actually changes what you do next, which is when to leave.
 
 Next.js 16 (App Router), Tailwind CSS v4, TypeScript.
 
@@ -28,6 +29,7 @@ E*TRADE.
 | **Today's news** | **live** | Local and world headlines over curated RSS. Every item carries its source and age |
 | **Weather** | **live** | Open-Meteo, in the header beside the date — click it for the full forecast |
 | **Portfolio** | **live-wired** | Real E*TRADE positions and day P/L once connected; sample data until then |
+| **Leave by** | **live** | Drive time to the next event with a real address, counted back to a walk-out-the-door time |
 
 Calendar, email and tasks still run on the typed mock arrays in
 `src/lib/data.ts` — swap them for real APIs the same way the live panels work.
@@ -85,6 +87,52 @@ Expiry is still enforced server-side rather than left to the cookie: a token
 minted on a previous US Eastern day is treated as dead, so you get a reconnect
 prompt instead of a 401.
 
+## Leave-by time
+
+Above the panels, and only when there's something to drive to, is the one
+number that tells you to stand up rather than describing your day: when to
+walk out the door for the next event you can't attend from a desk.
+
+It goes green, then amber inside forty-five minutes, then pink once you're
+late — the loudest thing on the screen at exactly the moment it should be.
+
+Events qualify by having a real street address. A Zoom call has a `location`
+but no `address`, and that distinction is the whole signal: the panel would
+rather show nothing than guess where "Conf Rm 4B" is.
+
+Routing is [OSRM](https://project-osrm.org)'s public server and geocoding is
+Nominatim — no key, no account, no quota. The tradeoff is that OSRM has no
+live traffic feed, so the estimate is padded (a third for rush hour, a tenth
+otherwise, plus seven minutes door-to-door) and the UI says *estimated, no
+live traffic* rather than implying a precision it doesn't have. Swap in a
+traffic-aware router in `src/lib/providers/commute.ts` if you want the real
+number.
+
+## The briefing, written rather than listed
+
+`GET /api/briefing` composes the spoken briefing two ways:
+
+- **Deterministic** (always available, no key, no cost). Every section, in a
+  fixed order. It lists.
+- **Claude-authored** (`ANTHROPIC_API_KEY` set). Same data, read across
+  instead of down: the deck that landed at 5:58 and the review it's for at 11,
+  the only free window big enough for the overdue task, the drive that's in
+  the rain. Sections with nothing notable are left out rather than narrated,
+  and it ends on the single most useful thing to do first.
+
+The second is strictly an upgrade path. No key, a failed call, or a refusal
+all fall back to the first, so the endpoint has no state where you get
+nothing. `X-Briefing-Author` on the response says which one answered, and
+`?author=template` forces the deterministic one.
+
+Both composers read the same `BriefingSnapshot` and nothing else, so the
+difference between them is judgement, not access. Generations are cached in
+ten-minute buckets keyed on what's actually changed, so a page refresh doesn't
+bill a new one.
+
+`?format=json` returns the snapshot itself, for anything that would rather
+render the data than hear it.
+
 ## The boot sequence and the voice
 
 Opening the app powers up an arc reactor over a black screen, runs its start-up
@@ -123,6 +171,13 @@ anything about them — the in-app voice reads this exact text. Each section is
 independent: a dead upstream drops that sentence rather than the whole
 briefing.
 
+## On a phone
+
+The app ships a web manifest and installs to a home screen as a standalone
+app, which is where a morning briefing is actually read. Below `lg` the panels
+stack and the page scrolls normally; the theme colour and `viewport-fit`
+handle the status bar and the notch.
+
 ## How the live panels work
 
 Every live panel goes through the same path, so loading, failure, staleness and
@@ -143,9 +198,15 @@ src/
       weather.ts    Open-Meteo + Nominatim reverse geocoding
       etrade/       OAuth 1.0a signing, live client, mock provider
       etrade/seal.ts  AES-256-GCM sealing for the session cookie
+      commute.ts    OSRM routing + Nominatim geocoding for the leave-by time
+    briefing/
+      snapshot.ts   everything known about today, gathered once
+      template.ts   the deterministic composer — always available
+      claude.ts     the Claude-authored composer — upgrade path, never required
   components/
     ArcReactor.tsx    generated SVG geometry, animated in CSS
     BootSequence.tsx  start-up overlay, skippable
+    LeaveBy.tsx       the walk-out-the-door banner
     VoiceProvider.tsx owns the boot overlay and the speech session
     WeatherStrip.tsx  header summary; click for the full forecast
   hooks/
@@ -200,6 +261,12 @@ The suite covers the places bugs actually hide:
   announcing a 3am sunrise.
 - **Feed routing** — that Lantana, its neighbouring towns and a bare county
   name all reach the same newsrooms.
+- **Commute maths** — rush-hour padding, counting back to a leave-by time,
+  going negative once you're late, and returning nothing rather than throwing
+  when the geocoder or the router is down.
+- **Briefing composition** — that the deterministic briefing is valid with
+  every upstream dead, speaks symbols as words, and stays quiet about a
+  portfolio that isn't connected.
 
 ## Note on `next.config.ts`
 

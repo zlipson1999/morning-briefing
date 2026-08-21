@@ -1,0 +1,144 @@
+import { describe, expect, it } from "vitest";
+import { composeTemplate } from "@/lib/briefing/template";
+import type { BriefingSnapshot } from "@/lib/briefing/snapshot";
+
+function snapshot(overrides: Partial<BriefingSnapshot> = {}): BriefingSnapshot {
+  return {
+    userName: "Zach",
+    now: { weekday: "Friday", date: "August 21", time: "7:15 AM", hour: 7, minutes: 435 },
+    weather: null,
+    schedule: { remaining: 0, total: 0, events: [], freeWindows: [], conflicts: [] },
+    inbox: { unread: 0, messages: [] },
+    tasks: { open: 0, done: 0, items: [] },
+    portfolio: null,
+    news: { local: [], global: [] },
+    commute: null,
+    ...overrides,
+  };
+}
+
+describe("composeTemplate", () => {
+  it("greets by the hour", () => {
+    expect(composeTemplate(snapshot())).toMatch(/^Good morning, Zach\./);
+    expect(composeTemplate(snapshot({ now: { ...snapshot().now, hour: 14 } }))).toMatch(/^Good afternoon/);
+    expect(composeTemplate(snapshot({ now: { ...snapshot().now, hour: 21 } }))).toMatch(/^Good evening/);
+  });
+
+  /**
+   * Every section is optional by construction — a dead upstream costs you a
+   * sentence, never the briefing.
+   */
+  it("produces a valid briefing when every upstream is missing", () => {
+    const text = composeTemplate(snapshot());
+    expect(text).toContain("Good morning, Zach.");
+    expect(text).toContain("Your calendar is clear");
+    expect(text).not.toContain("undefined");
+    expect(text).not.toContain("NaN");
+  });
+
+  it("says symbols as words, since it's read aloud", () => {
+    const text = composeTemplate(
+      snapshot({
+        portfolio: { connected: true, totalValue: 128_400, dayChangePct: -1.24, movers: [] },
+      }),
+    );
+    expect(text).toContain("down 1.2 percent");
+    expect(text).toContain("128,400 dollars");
+    expect(text).not.toContain("%");
+    expect(text).not.toContain("$");
+  });
+
+  it("stays quiet about a portfolio that isn't connected", () => {
+    const text = composeTemplate(
+      snapshot({ portfolio: { connected: false, totalValue: 1, dayChangePct: 9, movers: [] } }),
+    );
+    expect(text).not.toContain("portfolio");
+  });
+
+  it("counts the day's remaining events and names the next one", () => {
+    const text = composeTemplate(
+      snapshot({
+        schedule: {
+          remaining: 2,
+          total: 3,
+          events: [
+            { title: "Standup", start: "9 a.m.", end: "9:15 a.m.", location: "Zoom", kind: "meeting", attendees: [], status: "past" },
+            { title: "Design review", start: "11 a.m.", end: "12 p.m.", location: "4B", kind: "meeting", attendees: [], status: "upcoming" },
+            { title: "1:1", start: "3:30 p.m.", end: "4 p.m.", location: "2A", kind: "meeting", attendees: [], status: "upcoming" },
+          ],
+          freeWindows: [],
+          conflicts: [],
+        },
+      }),
+    );
+    expect(text).toContain("2 events left today");
+    expect(text).toContain("Next up is Design review at 11 a.m.");
+  });
+
+  it("calls out a calendar conflict", () => {
+    const text = composeTemplate(
+      snapshot({
+        schedule: { ...snapshot().schedule, conflicts: [{ a: "Design review", b: "Interview" }] },
+      }),
+    );
+    expect(text).toContain("Design review overlaps Interview");
+  });
+
+  it("gives the leave-by time, and switches wording once you're late", () => {
+    const commute = {
+      destination: "Design review",
+      address: "500 S Australian Ave",
+      startsAt: "11:00",
+      driveMinutes: 29,
+      distanceMiles: 12,
+      leaveInMinutes: 31,
+      leaveAtLabel: "10:31 AM",
+      freeFlow: true,
+    };
+
+    expect(composeTemplate(snapshot({ commute }))).toContain("Leave in 31 minutes for Design review");
+    expect(composeTemplate(snapshot({ commute: { ...commute, leaveInMinutes: -14 } })))
+      .toContain("14 minutes past when you should have left");
+  });
+
+  it("reads the whole forecast, not just the temperature", () => {
+    const text = composeTemplate(
+      snapshot({
+        weather: {
+          place: "Lantana, Florida",
+          tempF: 84, feelsLikeF: 94, highF: 91, lowF: 78,
+          condition: "Thunderstorms", code: 95, isDay: true,
+          humidity: 71, precipChance: 65, precipTotalIn: 0.42,
+          windMph: 11, gustMph: 25, windFrom: "ESE",
+          uvIndexMax: 9.4, sunrise: "6:57 AM", sunset: "7:52 PM",
+          daylightMinutes: 775, hourly: [],
+        },
+      }),
+    );
+
+    expect(text).toContain("84 degrees and thunderstorms");
+    expect(text).toContain("feeling like 94");
+    expect(text).toContain("Humidity 71 percent");
+    expect(text).toContain("out of the ESE");
+    expect(text).toContain("gusting to 25");
+    expect(text).toContain("65 percent chance of rain");
+    expect(text).toContain("UV index peaks at 9 — very high");
+    expect(text).toContain("Sunrise 6:57 AM, sunset 7:52 PM");
+  });
+
+  it("names flagged senders by first name", () => {
+    const text = composeTemplate(
+      snapshot({
+        inbox: {
+          unread: 3,
+          messages: [
+            { sender: "Priya Raghavan", subject: "a", preview: "", important: true, label: "Work" },
+            { sender: "Sofia Lindqvist", subject: "b", preview: "", important: true, label: "Work" },
+            { sender: "GitHub", subject: "c", preview: "", important: false, label: "Updates" },
+          ],
+        },
+      }),
+    );
+    expect(text).toContain("3 unread emails, including flagged notes from Priya and Sofia.");
+  });
+});

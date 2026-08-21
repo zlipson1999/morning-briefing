@@ -6,6 +6,13 @@ export type CalendarEvent = {
   start: string; // 24h "HH:MM"
   end: string;
   location: string;
+  /**
+   * A real street address, for events you have to physically get to. Its
+   * presence is what makes an event eligible for a leave-by time — a Zoom
+   * call has a location but no address, and that distinction is the whole
+   * signal.
+   */
+  address?: string;
   attendees: string[];
   kind: "meeting" | "focus" | "personal" | "interview";
 };
@@ -57,6 +64,7 @@ export const events: CalendarEvent[] = [
     start: "11:00",
     end: "12:00",
     location: "Conf Rm 4B",
+    address: "500 S Australian Ave, West Palm Beach, FL 33401",
     attendees: ["Sofia L.", "Daniel W.", "Priya R."],
     kind: "meeting",
   },
@@ -66,6 +74,7 @@ export const events: CalendarEvent[] = [
     start: "12:30",
     end: "13:30",
     location: "Cafe Lento",
+    address: "319 Belvedere Rd, West Palm Beach, FL 33405",
     attendees: ["Marcus D."],
     kind: "personal",
   },
@@ -84,6 +93,7 @@ export const events: CalendarEvent[] = [
     start: "15:30",
     end: "16:00",
     location: "Conf Rm 2A",
+    address: "500 S Australian Ave, West Palm Beach, FL 33401",
     attendees: ["Elena K."],
     kind: "meeting",
   },

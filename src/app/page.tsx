@@ -1,4 +1,5 @@
 import Header from "@/components/Header";
+import LeaveBy from "@/components/LeaveBy";
 import CalendarPanel from "@/components/CalendarPanel";
 import EmailPanel from "@/components/EmailPanel";
 import TaskPanel from "@/components/TaskPanel";
@@ -13,6 +14,7 @@ export default function Home() {
        page scrolls normally. */
     <main className="relative mx-auto flex min-h-dvh w-full max-w-[1700px] flex-col gap-6 px-5 py-8 sm:px-8 sm:py-9 lg:h-dvh lg:min-h-0 lg:overflow-hidden">
       <Header />
+      <LeaveBy />
 
       <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-3 lg:grid-rows-[1.15fr_1fr] xl:grid-cols-6">
         <CalendarPanel className="xl:col-span-2" />
