@@ -4,6 +4,7 @@ import { SunIcon } from "./icons";
 import WeatherStrip from "./WeatherStrip";
 import VoiceButton from "./VoiceButton";
 import { USER_NAME } from "@/lib/data";
+import { ASSISTANT_NAME, ASSISTANT_TAGLINE } from "@/lib/config";
 import { useClock } from "@/lib/useClock";
 
 function greetingFor(hour: number) {
@@ -34,7 +35,10 @@ export default function Header() {
       <div>
         <p className="flex items-center gap-2 text-[13px] font-medium tracking-[0.16em] text-mist-400 uppercase">
           <SunIcon className="size-4 text-mail" />
-          Morning briefing
+          {ASSISTANT_NAME}
+          <span className="hidden text-[10px] tracking-[0.14em] text-mist-400/80 normal-case sm:inline">
+            {ASSISTANT_TAGLINE}
+          </span>
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-mist-100 sm:text-4xl">
           {greetingFor(now?.getHours() ?? 8)},{" "}

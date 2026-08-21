@@ -20,7 +20,7 @@ export default function Error({
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6 text-center">
       <p className="font-mono text-[11px] tracking-[0.34em] text-[#5cc8de] uppercase">
-        Morning Briefing
+        Miles
       </p>
       <h1 className="text-2xl font-semibold text-mist-100">The briefing didn&apos;t load.</h1>
       <p className="max-w-md text-sm leading-relaxed text-mist-300">

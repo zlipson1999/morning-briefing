@@ -5,6 +5,14 @@
 export const USER_NAME = "Zach";
 
 /**
+ * The assistant's name. It's what the header and boot screen show, what the
+ * spoken briefing calls itself, and — lowercased — the wake word: say
+ * "Hey Miles" with listening enabled and it answers.
+ */
+export const ASSISTANT_NAME = "Miles";
+export const ASSISTANT_TAGLINE = "My Integrated Life Efficiency System";
+
+/**
  * Fallback location, used before the browser grants geolocation and whenever
  * it's denied or unavailable. Set this to where you actually are.
  */

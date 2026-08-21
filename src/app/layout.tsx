@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { USER_NAME } from "@/lib/data";
+import { ASSISTANT_NAME, ASSISTANT_TAGLINE } from "@/lib/config";
 import VoiceProvider from "@/components/VoiceProvider";
 
 const inter = Inter({
@@ -10,11 +11,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Morning Briefing",
-  description: `${USER_NAME}'s calendar, inbox and tasks for today.`,
-  applicationName: "Morning Briefing",
+  title: ASSISTANT_NAME,
+  description: `${ASSISTANT_TAGLINE} — ${USER_NAME}'s day, briefed.`,
+  applicationName: ASSISTANT_NAME,
   // Installed on a phone home screen, this is the app, not a page in a browser.
-  appleWebApp: { capable: true, title: "Briefing", statusBarStyle: "black-translucent" },
+  appleWebApp: { capable: true, title: ASSISTANT_NAME, statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {

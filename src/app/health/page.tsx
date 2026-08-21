@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { Check } from "@/lib/health";
+import { ASSISTANT_NAME } from "@/lib/config";
 
 type Report = {
   checkedAt: number;
@@ -57,7 +58,7 @@ export default function HealthPage() {
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-6 px-5 py-10 sm:px-8">
       <header className="rise">
         <p className="font-mono text-[11px] tracking-[0.34em] text-[#5cc8de] uppercase">
-          Morning Briefing
+          {ASSISTANT_NAME}
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-mist-100">Health</h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-mist-300">
@@ -143,7 +144,7 @@ export default function HealthPage() {
 
       <footer className="mt-auto pt-4 text-[11px] text-mist-400">
         <Link href="/" className="hover:text-mist-200">
-          ← Back to the briefing
+          ← Back to Miles
         </Link>
       </footer>
     </main>

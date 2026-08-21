@@ -1,8 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useBriefingVoice, type SpeakMode, type VoiceSource, type VoiceState } from "@/hooks/useBriefingVoice";
+import { useWakeWord, type WakeWordState } from "@/hooks/useWakeWord";
 import { useBriefedToday } from "@/lib/briefedToday";
+import { interpretWakeCommand } from "@/lib/wakeCommands";
 import BootSequence from "./BootSequence";
 
 type VoiceContextValue = {
@@ -13,6 +15,9 @@ type VoiceContextValue = {
   speak: (options?: { force?: boolean; mode?: SpeakMode }) => void;
   stop: () => void;
   toggleMute: () => void;
+  /** "Hey Miles" — hands-free activation while the tab is open. */
+  wakeState: WakeWordState;
+  toggleWake: () => void;
 };
 
 const VoiceContext = createContext<VoiceContextValue | null>(null);
@@ -47,9 +52,43 @@ export default function VoiceProvider({ children }: { children: ReactNode }) {
     speak();
   }, [speak]);
 
+  const onWake = useCallback(
+    (command: string) => {
+      const intent = interpretWakeCommand(command);
+      switch (intent.kind) {
+        case "stop":
+          stop();
+          break;
+        case "mute":
+          if (!muted) toggleMute();
+          break;
+        case "unmute":
+          if (muted) toggleMute();
+          break;
+        case "speak":
+          // Force past mute and past the once-per-load guard: being asked out
+          // loud is the clearest possible user gesture. Asking for "what now"
+          // before the morning has ever played gets the morning instead.
+          speak({
+            force: true,
+            mode: intent.mode === "now" && !briefedToday ? "morning" : intent.mode,
+          });
+          break;
+      }
+    },
+    [speak, stop, muted, toggleMute, briefedToday],
+  );
+
+  // Paused while the app itself talks, so it can't hear its own voice say
+  // its own name and loop.
+  const { state: wakeState, toggle: toggleWake } = useWakeWord({
+    onWake,
+    paused: state === "speaking" || state === "loading",
+  });
+
   const value = useMemo(
-    () => ({ state, voiceSource, muted, speak, stop, toggleMute }),
-    [state, voiceSource, muted, speak, stop, toggleMute],
+    () => ({ state, voiceSource, muted, speak, stop, toggleMute, wakeState, toggleWake }),
+    [state, voiceSource, muted, speak, stop, toggleMute, wakeState, toggleWake],
   );
 
   return (

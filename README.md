@@ -1,8 +1,11 @@
-# Morning Briefing
+# Miles
 
-A dark, single-screen dashboard for the start of the day: schedule, inbox,
-tasks, news, weather and portfolio, all visible without scrolling — plus the
-one line that actually changes what you do next, which is when to leave.
+**M**y **I**ntegrated **L**ife **E**fficiency **S**ystem — a dark,
+single-screen dashboard for the start of the day: schedule, inbox, tasks,
+news, weather and portfolio, all visible without scrolling, plus the one line
+that actually changes what you do next, which is when to leave. It reads the
+day to you when you sit down, and answers to its name while you're at the
+computer.
 
 Next.js 16 (App Router), Tailwind CSS v4, TypeScript.
 
@@ -36,8 +39,9 @@ data and says so.
 
 ## Configuration
 
-Everything personal lives in `src/lib/config.ts`: your name, your fallback
-location, and the panel refresh intervals. The fallback ships as Lantana, FL —
+Everything personal lives in `src/lib/config.ts`: your name, the assistant's
+name (which is also the wake word), your fallback location, the watchlist,
+and the panel refresh intervals. The fallback ships as Lantana, FL —
 it is only a fallback, since the browser's own coordinates take over as soon
 as you grant geolocation.
 
@@ -300,6 +304,32 @@ screen. The web manifest makes it launch standalone, without browser chrome;
 below `lg` the panels stack and the page scrolls normally, and the theme
 colour and `viewport-fit` handle the status bar and the notch.
 
+## "Hey Miles"
+
+With listening enabled — the **Hey Miles** toggle in the header — the tab
+listens for its name through the browser's own speech recognition. Chrome and
+Edge ship it; Firefox doesn't, and there the toggle simply doesn't render.
+
+Say the name and it answers with the short update. A few phrasings do more:
+
+| You say | Miles does |
+| --- | --- |
+| "Hey Miles" / "Miles, what's next" | the short *what now* update |
+| "Hey Miles, full briefing" / "…start over" | the whole morning briefing again |
+| "Hey Miles, stop" / "…be quiet" | stops talking |
+| "Hey Miles, mute" / "…unmute" | the mute toggle |
+
+Anything it doesn't recognise falls through to the short update — answering
+*something* to your name matters more than parsing precisely.
+
+Three honest constraints. It's opt-in and persisted, because a dashboard must
+never turn on the microphone by itself. It only listens while the tab is open,
+and the browser shows its recording indicator the whole time — a feature, not
+a bug. And it pauses while Miles is talking, so it can't hear its own voice
+say its own name and loop. No audio leaves the machine through this app; the
+recognition is the browser's. Renaming the assistant in `src/lib/config.ts`
+renames the wake word with it.
+
 ## The boot sequence and the voice
 
 Opening the app powers up an arc reactor over a black screen, runs its start-up
@@ -393,6 +423,7 @@ src/
     VoiceProvider.tsx owns the boot overlay and the speech session
     WeatherStrip.tsx  header summary; click for the full forecast
   hooks/
+    useWakeWord.ts    "Hey Miles" over the browser's own speech recognition
     usePanelData.ts   loading/error/stale/refresh, pauses polling when tab hidden
     useLocation.ts    geolocation, reverse-geocoded, with configured fallback
     useDailySet.ts    day-scoped localStorage for ticks and reads
@@ -463,6 +494,10 @@ The suite covers the places bugs actually hide:
 - **Health checks** — that a feed answering 200 with no items is a failure, an
   unconfigured key is not, and a store nobody has pushed to is empty rather
   than broken.
+- **The wake word** — matched against what recognition actually produces:
+  comma-happy greetings, the name mid-utterance, and near-misses ("forty miles
+  away", "smiles") that must not trigger it; plus the command grammar and its
+  fall-through to the short update.
 - **Ingest auth** — bearer and header forms, a near-miss token rejected on
   length before comparison, and everything refused when no token is set.
 - **News ranking** — that a model's output is validated rather than trusted:

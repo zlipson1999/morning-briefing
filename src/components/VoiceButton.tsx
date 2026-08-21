@@ -1,6 +1,7 @@
 "use client";
 
 import { useVoice } from "./VoiceProvider";
+import { ASSISTANT_NAME } from "@/lib/config";
 
 /**
  * Replays or silences the spoken briefing. Shows what the voice is actually
@@ -8,7 +9,7 @@ import { useVoice } from "./VoiceProvider";
  * doesn't look like a broken button.
  */
 export default function VoiceButton() {
-  const { state, voiceSource, muted, speak, stop, toggleMute } = useVoice();
+  const { state, voiceSource, muted, speak, stop, toggleMute, wakeState, toggleWake } = useVoice();
 
   if (state === "unsupported") return null;
 
@@ -57,6 +58,37 @@ export default function VoiceButton() {
           {muted ? <path d="m16 9 5 6M21 9l-5 6" /> : <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" />}
         </svg>
       </button>
+
+      {/* "Hey Miles" — hidden entirely where the browser can't do it. */}
+      {wakeState !== "unsupported" && (
+        <button
+          type="button"
+          onClick={toggleWake}
+          aria-pressed={wakeState === "listening"}
+          title={
+            wakeState === "listening"
+              ? `Listening for \u201cHey ${ASSISTANT_NAME}\u201d. Click to stop.`
+              : wakeState === "blocked"
+                ? "Microphone access was denied \u2014 allow it in the browser and click again."
+                : `Listen for \u201cHey ${ASSISTANT_NAME}\u201d. Uses the browser's own speech recognition.`
+          }
+          className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium tracking-wide uppercase transition-colors focus-visible:ring-2 focus-visible:ring-[#5cc8de] focus-visible:outline-none ${
+            wakeState === "listening"
+              ? "border-[#5cc8de]/50 text-[#5cc8de]"
+              : wakeState === "blocked"
+                ? "border-[#e0709a]/50 text-[#e0709a]"
+                : "border-ink-600 text-mist-400 hover:border-mist-400 hover:text-mist-200"
+          }`}
+        >
+          <span
+            className={`block size-1.5 rounded-full ${
+              wakeState === "listening" ? "animate-pulse bg-[#5cc8de]" : "bg-mist-400"
+            }`}
+            aria-hidden
+          />
+          Hey {ASSISTANT_NAME}
+        </button>
+      )}
     </div>
   );
 }
