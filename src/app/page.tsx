@@ -22,7 +22,7 @@ export default function Home() {
         <PortfolioPanel className="xl:col-span-2" />
       </div>
 
-      <footer className="shrink-0 text-center text-[11px] tracking-wide text-mist-400/70">
+      <footer className="shrink-0 text-center text-[11px] tracking-wide text-mist-400">
         Calendar, email and tasks are mock data · news, weather and portfolio are live-wired
       </footer>
     </main>

@@ -23,10 +23,10 @@ E*TRADE.
 | Panel | Source | Behaviour |
 | --- | --- | --- |
 | **Today's schedule** | mock | Finished events dim and strike through, the current one is tagged `NOW` and the next `NEXT`, header counts what's left |
-| **Unread email** | mock | Click to toggle read; the unread count follows |
-| **Task list** | mock | Tick to complete; live progress bar and overdue callout |
+| **Unread email** | mock | Click to toggle read; the unread count follows. Persists for the day |
+| **Task list** | mock | Tick to complete; live progress bar and overdue callout. Persists for the day |
 | **Today's news** | **live** | Local and world headlines over curated RSS. Every item carries its source and age |
-| **Weather** | **live** | Open-Meteo, in the header beside the date |
+| **Weather** | **live** | Open-Meteo, in the header beside the date — click it for the full forecast |
 | **Portfolio** | **live-wired** | Real E*TRADE positions and day P/L once connected; sample data until then |
 
 Calendar, email and tasks still run on the typed mock arrays in
@@ -35,14 +35,24 @@ Calendar, email and tasks still run on the typed mock arrays in
 ## Configuration
 
 Everything personal lives in `src/lib/config.ts`: your name, your fallback
-location, and the panel refresh intervals.
+location, and the panel refresh intervals. The fallback ships as Lantana, FL —
+it is only a fallback, since the browser's own coordinates take over as soon
+as you grant geolocation.
+
+**"Near me" follows you, not the config.** Granting geolocation moves the
+weather *and* the local news: the coordinates are reverse-geocoded server-side
+through `/api/place`, and the resulting locality is what the news panel is
+keyed by.
 
 News sources live in `src/lib/feeds.ts`. **Adding your own city's outlet there
 is the single highest-value edit in this repo** — a real local newsroom's feed
-beats any aggregator. Cities not listed fall back to Google News' geo feed,
-which covers everywhere but runs noticeably staler (a 2026 survey found a
-median item age around 6.6 days, with only ~7.6% under six hours). That's why
-every headline shows its age, and anything over a day old is flagged amber.
+beats any aggregator. Two fallbacks sit behind it: a city with no curated
+entry uses Google News' geo feed, and so does a city whose curated feeds all
+fail, so a newsroom quietly changing its feed URL costs you freshness rather
+than the whole "Near me" tab. Google News covers everywhere but runs
+noticeably staler (a 2026 survey found a median item age around 6.6 days, with
+only ~7.6% under six hours). That's why it's never the primary, why every
+headline shows its age, and why anything over a day old is flagged amber.
 
 ## Connecting E*TRADE
 
@@ -53,16 +63,27 @@ The portfolio panel shows sample positions until you add a key.
 2. Complete the API Developer Agreement and the User Intent Survey. An
    individual key is issued immediately; sandbox first, then production.
 3. `cp .env.example .env.local` and fill in the key and secret.
-4. Restart, then hit **Connect E*TRADE** in the portfolio panel.
+4. Set `SESSION_SECRET` in the same file. Without it the app still works, but
+   the signing key is regenerated at boot, so a connection doesn't survive a
+   restart and breaks outright on any host running more than one instance.
+5. Restart, then hit **Connect E*TRADE** in the portfolio panel.
 
 **Expect to reconnect every morning.** E*TRADE is OAuth 1.0a, and its access
 tokens expire at midnight US Eastern — not a refresh-token flow, an actual
 re-login. There's also a two-hour inactivity timeout. For a dashboard you open
 once a day that's close to free, and the panel prompts you when it happens.
 
-Access tokens are held in server memory only. They are never written to a
-cookie, never sent to the browser, and never persisted to disk — the browser
-holds an opaque session id and nothing else.
+Access tokens ride in an httpOnly cookie, sealed with AES-256-GCM under
+`SESSION_SECRET` before they leave the server. The browser holds ciphertext it
+cannot read, cannot forge, and cannot hand to page JavaScript; a tampered
+cookie fails to open rather than decrypting into anything useful. The server
+keeps no per-session state at all, which is the point — the previous
+in-memory design lost sessions at random on any host that runs more than one
+instance or recycles them between requests, and blamed E*TRADE for it.
+
+Expiry is still enforced server-side rather than left to the cookie: a token
+minted on a previous US Eastern day is treated as dead, so you get a reconnect
+prompt instead of a 401.
 
 ## The boot sequence and the voice
 
@@ -109,7 +130,9 @@ partial failure are handled once instead of per panel:
 
 ```
 src/
-  app/api/{news,weather,briefing,etrade/*}/route.ts   server-side fetching
+  app/
+    api/{news,weather,place,briefing,etrade/*}/route.ts  server-side fetching
+    error.tsx / global-error.tsx / not-found.tsx         app-level failure states
   lib/
     cache.ts        TTL cache: dedupes in-flight calls, serves stale on failure
     panel.ts        the one response shape every panel route returns
@@ -119,13 +142,16 @@ src/
       news.ts       RSS/Atom/RDF parsing, per-feed error isolation
       weather.ts    Open-Meteo + Nominatim reverse geocoding
       etrade/       OAuth 1.0a signing, live client, mock provider
+      etrade/seal.ts  AES-256-GCM sealing for the session cookie
   components/
     ArcReactor.tsx    generated SVG geometry, animated in CSS
     BootSequence.tsx  start-up overlay, skippable
     VoiceProvider.tsx owns the boot overlay and the speech session
+    WeatherStrip.tsx  header summary; click for the full forecast
   hooks/
     usePanelData.ts   loading/error/stale/refresh, pauses polling when tab hidden
-    useLocation.ts    geolocation with configured fallback
+    useLocation.ts    geolocation, reverse-geocoded, with configured fallback
+    useDailySet.ts    day-scoped localStorage for ticks and reads
     useBriefingVoice.ts speech synthesis, voice selection, mute preference
 ```
 
@@ -139,17 +165,41 @@ Three deliberate choices worth knowing:
   consumer secret, so all E*TRADE calls happen in route handlers.
 - **Polling pauses when the tab is hidden.** A backgrounded dashboard
   shouldn't hammer upstream APIs all day.
+- **Nothing lives in server memory.** The cache is a bounded TTL map that can
+  be thrown away at any moment; the E*TRADE session is a sealed cookie. Both
+  are deliberate: anything held in a module-level `Map` is a bug waiting for
+  the day the app runs on more than one instance.
 
 ## Tests
 
 ```bash
-npm test
+npm test        # vitest
+npm run lint
+npm run typecheck
 ```
 
-Covers the two places bugs actually hide: RSS parsing (RSS 2.0, Atom and RDF,
-CDATA, entity escapes, missing fields, junk input, cross-outlet dedupe) and
-OAuth 1.0a signing, which is pinned against the published OAuth 1.0 signature
-vector so a broken signature is caught without needing live credentials.
+All three plus `npm run build` run in CI on every push and pull request
+(`.github/workflows/ci.yml`). The build is in there because it catches what
+the others can't: a route that only fails once Next traces it, and any
+accidental client/server boundary crossing.
+
+The suite covers the places bugs actually hide:
+
+- **RSS parsing** — RSS 2.0, Atom and RDF, CDATA, entity escapes, missing
+  fields, junk input, cross-outlet dedupe.
+- **OAuth 1.0a signing** — pinned against the published OAuth 1.0 signature
+  vector, so a broken signature is caught without live credentials.
+- **The cache** — including a regression for a real bug: the in-flight dedupe
+  used to `await` outside the `try`, so a failed refresh served stale data to
+  the caller that started it and threw at every caller that joined it.
+- **Session sealing** — round trip, tamper rejection, wrong-key rejection, and
+  the midnight-US-Eastern expiry boundary (including a UTC midnight that isn't
+  an Eastern one).
+- **Weather mapping** — every field the panel and the spoken briefing read,
+  and the wall-clock parsing that stops a server in another timezone from
+  announcing a 3am sunrise.
+- **Feed routing** — that Lantana, its neighbouring towns and a bare county
+  name all reach the same newsrooms.
 
 ## Note on `next.config.ts`
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { beginAuthorization, credentials } from "@/lib/providers/etrade/client";
-import { putPending } from "@/lib/providers/etrade/session";
-import { sessionId, SESSION_COOKIE, SESSION_COOKIE_OPTIONS } from "@/lib/providers/etrade";
+import { sealPending } from "@/lib/providers/etrade/session";
+import { PENDING_COOKIE, PENDING_COOKIE_OPTIONS } from "@/lib/providers/etrade";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +17,11 @@ export async function GET(request: Request) {
     const callbackUrl = new URL("/api/etrade/callback", request.url).toString();
     const { requestToken, authorizeUrl } = await beginAuthorization(callbackUrl);
 
-    const id = await sessionId();
-    putPending(id, requestToken);
-
+    // The request token rides along in a sealed, short-lived cookie rather
+    // than server memory, so the callback can complete on a different
+    // instance than the one that started the dance.
     const response = NextResponse.redirect(authorizeUrl);
-    response.cookies.set(SESSION_COOKIE, id, SESSION_COOKIE_OPTIONS);
+    response.cookies.set(PENDING_COOKIE, sealPending(requestToken), PENDING_COOKIE_OPTIONS);
     return response;
   } catch (error) {
     console.error("[etrade:connect]", error);

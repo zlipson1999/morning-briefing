@@ -1,6 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
 import { cached, fetchWithTimeout } from "@/lib/cache";
-import { GLOBAL_FEEDS, localFeedsFor, type Feed } from "@/lib/feeds";
+import { GLOBAL_FEEDS, googleNewsFeedFor, localFeedsFor, type Feed } from "@/lib/feeds";
 
 export type Headline = {
   id: string;
@@ -129,7 +129,6 @@ export async function getNews(place: string): Promise<{
   stale: boolean;
   degraded: string[];
 }> {
-  const localFeeds = localFeedsFor(place);
   const degraded: string[] = [];
 
   const { value, stale } = await cached(`news:${place}`, { ttlMs: 10 * 60_000 }, async () => {
@@ -147,7 +146,15 @@ export async function getNews(place: string): Promise<{
       return items;
     };
 
-    const [local, global] = await Promise.all([settle(localFeeds), settle(GLOBAL_FEEDS)]);
+    const [curated, global] = await Promise.all([
+      settle(localFeedsFor(place)),
+      settle(GLOBAL_FEEDS),
+    ]);
+
+    // A curated newsroom that changed its feed URL used to mean an empty
+    // "Near me" tab with no explanation. Fall back to the geo feed instead:
+    // staler, but local news beats no local news.
+    const local = curated.length > 0 ? curated : await settle([googleNewsFeedFor(place)]);
 
     if (local.length === 0 && global.length === 0) {
       throw new Error("Every news source failed");

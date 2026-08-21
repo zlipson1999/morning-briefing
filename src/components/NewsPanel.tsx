@@ -99,7 +99,7 @@ export default function NewsPanel({ className }: { className?: string }) {
                   <span className="font-medium text-mist-300">{item.source}</span>
                   {item.publishedAt && (
                     <>
-                      <span className="text-ink-600">·</span>
+                      <span className="text-mist-400/60" aria-hidden>·</span>
                       <span className={isStale(item.publishedAt) ? "text-mail" : ""}>
                         {age(item.publishedAt)}
                       </span>

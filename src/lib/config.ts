@@ -9,9 +9,9 @@ export const USER_NAME = "Zach";
  * it's denied or unavailable. Set this to where you actually are.
  */
 export const HOME_LOCATION = {
-  label: "Seattle, WA",
-  latitude: 47.6062,
-  longitude: -122.3321,
+  label: "Lantana, Florida",
+  latitude: 26.5867,
+  longitude: -80.052,
 } as const;
 
 /** Panel refresh cadence, in ms. Server-side caching means these are cheap. */

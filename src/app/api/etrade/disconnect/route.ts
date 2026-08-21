@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { clearSession, SESSION_COOKIE } from "@/lib/providers/etrade/session";
+import { PENDING_COOKIE, SESSION_COOKIE } from "@/lib/providers/etrade";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request) {
-  const id = request.headers.get("cookie")?.match(/mb_etrade_session=([^;]+)/)?.[1];
-  clearSession(id);
+export async function POST() {
+  // Nothing to clear server-side by design — the session lives entirely in the
+  // sealed cookie, so dropping it is the whole disconnect.
   const response = NextResponse.json({ ok: true });
   response.cookies.delete(SESSION_COOKIE);
+  response.cookies.delete(PENDING_COOKIE);
   return response;
 }

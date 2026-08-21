@@ -1,12 +1,17 @@
 import { cookies } from "next/headers";
-import crypto from "node:crypto";
 import { credentials, fetchPortfolio, UnauthorizedError } from "./client";
 import { mockPortfolio } from "./mock";
-import { getSession, SESSION_COOKIE } from "./session";
+import { readSession, SESSION_COOKIE } from "./session";
 import type { ConnectionState, Portfolio } from "./types";
 
 export { UnauthorizedError };
 export * from "./types";
+export {
+  SESSION_COOKIE,
+  SESSION_COOKIE_OPTIONS,
+  PENDING_COOKIE,
+  PENDING_COOKIE_OPTIONS,
+} from "./session";
 
 /**
  * Chooses the provider. With no consumer key configured the app runs on mock
@@ -25,33 +30,20 @@ export async function readPortfolio(): Promise<
     };
   }
 
-  const sessionId = (await cookies()).get(SESSION_COOKIE)?.value;
-  const token = getSession(sessionId);
+  const sealed = (await cookies()).get(SESSION_COOKIE)?.value;
+  const session = readSession(sealed);
 
-  if (!token) {
+  if (session.status !== "ok") {
     return {
       portfolio: mockPortfolio(),
-      state: { connected: false, mode: creds.mode, reason: sessionId ? "expired" : "not-connected" },
+      state: {
+        connected: false,
+        mode: creds.mode,
+        reason: session.status === "expired" ? "expired" : "not-connected",
+      },
     };
   }
 
-  const portfolio = await fetchPortfolio(token);
+  const portfolio = await fetchPortfolio(session.token);
   return { portfolio, state: { connected: true, mode: creds.mode } };
 }
-
-export async function sessionId(): Promise<string> {
-  const jar = await cookies();
-  const existing = jar.get(SESSION_COOKIE)?.value;
-  if (existing) return existing;
-  return crypto.randomBytes(24).toString("hex");
-}
-
-export const SESSION_COOKIE_OPTIONS = {
-  httpOnly: true,
-  sameSite: "lax" as const,
-  path: "/",
-  secure: process.env.NODE_ENV === "production",
-  maxAge: 60 * 60 * 24,
-};
-
-export { SESSION_COOKIE };

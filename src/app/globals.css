@@ -7,7 +7,9 @@
   --color-ink-800: #151922;
   --color-ink-700: #1d222d;
   --color-ink-600: #2a313f;
-  --color-mist-400: #6f7887;
+  /* 5.1:1 on the panel background — the old #6f7887 measured 4.2:1, under
+     the 4.5:1 AA floor, and most of this UI's secondary text is 11-13px. */
+  --color-mist-400: #7c8595;
   --color-mist-300: #939cab;
   --color-mist-200: #c3cad6;
   --color-mist-100: #e8ecf2;

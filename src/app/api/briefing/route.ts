@@ -1,7 +1,7 @@
 import { USER_NAME, HOME_LOCATION } from "@/lib/config";
 import { events, emails, initialTasks } from "@/lib/data";
 import { getNews } from "@/lib/providers/news";
-import { getWeather } from "@/lib/providers/weather";
+import { describeUv, getWeather } from "@/lib/providers/weather";
 import { readPortfolio } from "@/lib/providers/etrade";
 
 export const dynamic = "force-dynamic";
@@ -33,11 +33,29 @@ export async function GET(request: Request) {
   // Every section is optional: one dead upstream shouldn't cost you the brief.
   try {
     const { value: w } = await getWeather(latitude, longitude, place);
-    lines.push(
-      `In ${w.place} it's ${w.tempF} degrees and ${w.condition.toLowerCase()}, ` +
-        `high of ${w.highF}, low of ${w.lowF}` +
-        `${w.precipChance >= 25 ? `, with a ${w.precipChance} percent chance of rain` : ""}.`,
-    );
+
+    // Everything the forecast knows, in the order you'd actually want it:
+    // what it's like now, what it becomes, and what to do about it.
+    const parts = [
+      `In ${w.place} it's ${w.tempF} degrees and ${w.condition.toLowerCase()}` +
+        (Math.abs(w.feelsLikeF - w.tempF) >= 3 ? `, feeling like ${w.feelsLikeF}` : "") +
+        `, with a high of ${w.highF} and a low of ${w.lowF}.`,
+      `Humidity ${w.humidity} percent, wind ${w.windMph} miles an hour out of the ${w.windFrom}` +
+        (w.gustMph >= w.windMph + 8 ? `, gusting to ${w.gustMph}` : "") +
+        ".",
+    ];
+
+    if (w.precipChance >= 25) {
+      parts.push(`There's a ${w.precipChance} percent chance of rain today.`);
+    }
+    if (w.uvIndexMax >= 6) {
+      parts.push(`UV index peaks at ${Math.round(w.uvIndexMax)} — ${describeUv(w.uvIndexMax).toLowerCase()}.`);
+    }
+    if (w.sunrise && w.sunset) {
+      parts.push(`Sunrise ${w.sunrise}, sunset ${w.sunset}.`);
+    }
+
+    lines.push(parts.join(" "));
   } catch {
     /* skip weather */
   }

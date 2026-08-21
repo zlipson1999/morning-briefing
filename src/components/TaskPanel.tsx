@@ -1,23 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo } from "react";
 import Panel from "./Panel";
 import { CheckSquareIcon } from "./icons";
 import { initialTasks, type Task } from "@/lib/data";
+import { useDailySet } from "@/hooks/useDailySet";
 
 const PRIORITY: Record<Task["priority"], { label: string; color: string }> = {
   high: { label: "High", color: "#e0709a" },
   medium: { label: "Medium", color: "#f0a63c" },
-  low: { label: "Low", color: "#6f7887" },
+  low: { label: "Low", color: "#7c8595" },
 };
 
 export default function TaskPanel({ className }: { className?: string }) {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-
-  const toggle = (id: string) =>
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-    );
+  // What's persisted is which tasks you *flipped* today, not which are done —
+  // so a task that ships already-done stays done, and your ticks survive a
+  // reload without the stored state having to mirror the source list.
+  const flipped = useDailySet("task-flipped");
+  const tasks: Task[] = useMemo(
+    () => initialTasks.map((t) => (flipped.has(t.id) ? { ...t, done: !t.done } : t)),
+    [flipped],
+  );
 
   const open = tasks.filter((t) => !t.done).length;
   const done = tasks.length - open;
@@ -59,7 +62,7 @@ export default function TaskPanel({ className }: { className?: string }) {
                 <input
                   type="checkbox"
                   checked={t.done}
-                  onChange={() => toggle(t.id)}
+                  onChange={() => flipped.toggle(t.id)}
                   className="peer sr-only"
                 />
                 <span
@@ -107,7 +110,7 @@ export default function TaskPanel({ className }: { className?: string }) {
                       {priority.label}
                     </span>
                     <span className="text-mist-400">{t.project}</span>
-                    <span className="text-ink-600">·</span>
+                    <span className="text-mist-400/60" aria-hidden>·</span>
                     <span className={overdue ? "font-semibold text-[#e0709a]" : "text-mist-400"}>
                       {overdue ? "Overdue — yesterday" : t.due}
                     </span>

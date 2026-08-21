@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import Panel from "./Panel";
 import { MailIcon, PaperclipIcon, StarIcon } from "./icons";
 import { emails, type Email } from "@/lib/data";
+import { useDailySet } from "@/hooks/useDailySet";
 
 const AVATAR_TINTS = ["#7c8cff", "#43cf9c", "#f0a63c", "#e0709a", "#5cc8de", "#b28df0"];
 
@@ -31,13 +31,10 @@ function timeLabel(hhmm: string) {
 }
 
 export default function EmailPanel({ className }: { className?: string }) {
-  const [readIds, setReadIds] = useState<string[]>([]);
-  const unread = emails.filter((e) => !readIds.includes(e.id));
-
-  const toggle = (id: string) =>
-    setReadIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+  // Persisted for the day: marking something read and finding it unread again
+  // after a refresh made the unread count a number you couldn't trust.
+  const read = useDailySet("email-read");
+  const unread = emails.filter((e) => !read.has(e.id));
 
   return (
     <Panel
@@ -50,14 +47,14 @@ export default function EmailPanel({ className }: { className?: string }) {
     >
       <ul className="flex flex-col gap-1">
         {emails.map((e: Email) => {
-          const isRead = readIds.includes(e.id);
+          const isRead = read.has(e.id);
           const tint = tintFor(e.sender);
 
           return (
             <li key={e.id}>
               <button
                 type="button"
-                onClick={() => toggle(e.id)}
+                onClick={() => read.toggle(e.id)}
                 aria-pressed={isRead}
                 aria-label={`Mark "${e.subject}" as ${isRead ? "unread" : "read"}`}
                 className={`flex w-full gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-ink-800/70 focus-visible:ring-2 focus-visible:ring-mail/60 focus-visible:outline-none ${
