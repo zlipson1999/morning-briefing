@@ -219,6 +219,19 @@ run-through of the day: by 3pm you know what today looks like, and the only
 question left is *what now*. If nothing needs you, it says so and stops —
 padding a short update is worse than silence.
 
+**And it doesn't repeat itself.** Each thing worth saying carries a stable key
+and an urgency stage, and the browser remembers what it was told and when. An
+update twenty minutes after the last one skips whatever hasn't changed and says
+only what has — mail that landed in those twenty minutes, a meeting that has
+started, a task that has crossed into overdue.
+
+A fact whose *urgency* changed is new information, not a repeat: "leave in
+forty minutes" going quiet is right, and it becoming "leave in eight minutes"
+and then "you're five minutes late" earns each of those. Both composers read
+the same fact list, so the deterministic path and the Claude path suppress and
+re-raise identically. The keys come back on `X-Briefing-Keys` and go out again
+as `?said=`; `?since=` carries the timestamp.
+
 The boot sequence is once a day too. A start-up animation you've already
 watched is a gate, not a flourish. `GET /api/briefing?mode=now` is the same
 thing over HTTP, and the replay button repeats whichever one you last heard.
@@ -241,6 +254,30 @@ bill a new one.
 
 `?format=json` returns the snapshot itself, for anything that would rather
 render the data than hear it.
+
+## Is any of this actually working?
+
+Load **`/health`**.
+
+Every upstream in this app fails safe on purpose — a dead feed drops its
+headlines, a dead router hides the leave-by banner, a missing key falls back to
+the deterministic briefing. That's the right behaviour, and it has one nasty
+consequence: **a half-broken install looks exactly like a working one.** "Why
+is Near Me empty" becomes an investigation rather than a glance.
+
+So `/health` probes all of them and says which are `ok`, `failing` or `off`,
+with the real error and a round-trip time. It distinguishes the three states
+carefully:
+
+- **failing** is a thing that should work and doesn't — including a feed that
+  answers `200` with no items, which is what a moved feed URL looks like from
+  the outside, and a Zapier store whose last push was over a day ago.
+- **off** is a thing you haven't set up. No Claude key, no server voice, no
+  E*TRADE, an empty store — all expected, all reported as off rather than
+  broken.
+
+Nothing on this page runs on the dashboard path. `GET /api/health` is the same
+thing as JSON.
 
 ## Reaching it from your phone
 
@@ -326,6 +363,7 @@ src/
     error.tsx / global-error.tsx / not-found.tsx         app-level failure states
   lib/
     cache.ts        TTL cache: dedupes in-flight calls, serves stale on failure
+    health.ts       probes every upstream — see /health
     panel.ts        the one response shape every panel route returns
     feeds.ts        curated RSS sources — edit this
     config.ts       name, home location, refresh intervals
@@ -418,8 +456,13 @@ The suite covers the places bugs actually hide:
   survives a restart, upserts by id, doesn't lose simultaneous writes, and
   distinguishes an empty real calendar from no calendar at all.
 - **The now-brief** — that it repeats none of the morning, scopes tasks and
-  mail to the current hour, counts down only inside the horizon, and never
-  doubles the period after a spoken time.
+  mail to the current hour, counts down only inside the horizon, never doubles
+  the period after a spoken time, says nothing when nothing has changed, and
+  re-raises a fact whose urgency moved (a countdown going critical, a task
+  going overdue) while staying quiet about one that merely still exists.
+- **Health checks** — that a feed answering 200 with no items is a failure, an
+  unconfigured key is not, and a store nobody has pushed to is empty rather
+  than broken.
 - **Ingest auth** — bearer and header forms, a near-miss token rejected on
   length before comparison, and everything refused when no token is set.
 - **News ranking** — that a model's output is validated rather than trusted:

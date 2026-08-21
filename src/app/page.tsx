@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Header from "@/components/Header";
 import LeaveBy from "@/components/LeaveBy";
 import CalendarPanel from "@/components/CalendarPanel";
@@ -27,8 +28,15 @@ export default function Home() {
         <PortfolioPanel className="xl:col-span-2" />
       </div>
 
-      <footer className="shrink-0 text-center text-[11px] tracking-wide text-mist-400">
-        Calendar, tasks and email are pushed in from Zapier · news, weather, commute and portfolio are live
+      <footer className="flex shrink-0 flex-wrap items-center justify-center gap-x-2 text-[11px] tracking-wide text-mist-400">
+        <span>
+          Calendar, tasks and email are pushed in from Zapier · news, weather, commute and
+          portfolio are live
+        </span>
+        <span aria-hidden>·</span>
+        <Link href="/health" className="underline-offset-2 hover:text-mist-200 hover:underline">
+          health
+        </Link>
       </footer>
     </main>
   );

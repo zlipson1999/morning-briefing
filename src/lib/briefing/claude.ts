@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { cached } from "@/lib/cache";
+import { describeFactsForPrompt, type NowContext } from "./now";
 import type { BriefingSnapshot } from "./snapshot";
 
 /**
@@ -62,6 +63,10 @@ Answer one question: what now?
 - If nothing needs them, say so plainly and stop. A short update is the correct output when
   nothing has changed; padding it is worse than silence.
 
+You are given two lists. Say what is under "worth saying now". Do not restate anything under
+"already said" — they heard it, it has not changed, and repeating it is the exact thing this
+update exists to avoid. If the first list is empty, say so in one sentence and stop.
+
 Two to four sentences, 40 to 90 words. Plain spoken prose — no markdown, no bullets, no
 lists. Second person, present tense. Numbers as a person would say them: "percent",
 "degrees", "dollars". Never invent a fact; if something is absent from the data it does not
@@ -96,11 +101,15 @@ export function claudeIsConfigured(): boolean {
 export async function composeWithClaude(
   snapshot: BriefingSnapshot,
   mode: BriefingMode = "morning",
+  context: NowContext = {},
 ): Promise<string | null> {
   if (!claudeIsConfigured()) return null;
 
   try {
-    const { value } = await cached(cacheKey(snapshot, mode), { ttlMs: 10 * 60_000 }, async () => {
+    const facts = mode === "now" ? describeFactsForPrompt(snapshot, context) : "";
+    const key = mode === "now" ? `briefing:now:${facts}` : cacheKey(snapshot, mode);
+
+    const { value } = await cached(key, { ttlMs: 10 * 60_000 }, async () => {
       const client = new Anthropic();
 
       const response = await client.messages.create({
@@ -117,7 +126,7 @@ export async function composeWithClaude(
               mode === "now"
                 ? `It is ${snapshot.now.time}. ${snapshot.userName} already heard the full ` +
                   `briefing this morning and has just reopened the dashboard. Write the update.` +
-                  `\n\n${JSON.stringify(snapshot, null, 2)}`
+                  `\n\n${facts}\n\nFull context:\n${JSON.stringify(snapshot, null, 2)}`
                 : `Here is everything known about ${snapshot.userName}'s day. ` +
                   `Write the briefing.\n\n${JSON.stringify(snapshot, null, 2)}`,
           },

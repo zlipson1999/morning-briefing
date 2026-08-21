@@ -1,6 +1,6 @@
 import { HOME_LOCATION } from "@/lib/config";
 import { claudeIsConfigured, composeWithClaude, type BriefingMode } from "@/lib/briefing/claude";
-import { composeNow } from "@/lib/briefing/now";
+import { composeNow, nowKeys } from "@/lib/briefing/now";
 import { gatherSnapshot } from "@/lib/briefing/snapshot";
 import { composeTemplate } from "@/lib/briefing/template";
 
@@ -47,9 +47,23 @@ export async function GET(request: Request) {
 
   const mode: BriefingMode = params.get("mode") === "now" ? "now" : "morning";
 
+  // What the caller was told last time, so an update can skip what hasn't
+  // changed rather than repeating itself twenty minutes later.
+  const since = Number(params.get("since"));
+  const context =
+    mode === "now"
+      ? {
+          since: Number.isFinite(since) && since > 0 ? since : null,
+          said: (params.get("said") ?? "").split(",").filter(Boolean),
+        }
+      : {};
+
   const written =
-    params.get("author") === "template" ? null : await composeWithClaude(snapshot, mode);
-  const text = written ?? (mode === "now" ? composeNow(snapshot) : composeTemplate(snapshot));
+    params.get("author") === "template" ? null : await composeWithClaude(snapshot, mode, context);
+
+  const deterministic = mode === "now" ? composeNow(snapshot, context) : null;
+  const text = written ?? deterministic?.text ?? composeTemplate(snapshot);
+  const keys = mode === "now" ? (deterministic?.keys ?? nowKeys(snapshot, context)) : [];
 
   return new Response(text, {
     headers: {
@@ -57,6 +71,8 @@ export async function GET(request: Request) {
       "Cache-Control": "no-store",
       "X-Briefing-Author": written ? "claude" : claudeIsConfigured() ? "template-fallback" : "template",
       "X-Briefing-Mode": mode,
+      // Feed these back as ?said= on the next update.
+      ...(keys.length ? { "X-Briefing-Keys": keys.join(",") } : {}),
     },
   });
 }

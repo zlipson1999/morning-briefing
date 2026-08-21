@@ -14,6 +14,7 @@ import { useSyncExternalStore } from "react";
  */
 
 const KEY = "mb:briefed";
+const NOW_KEY = "mb:now";
 
 function today(): string {
   const now = new Date();
@@ -37,6 +38,49 @@ export function markBriefedToday(): void {
     localStorage.setItem(KEY, today());
   } catch {
     /* private mode — the preference just won't persist */
+  }
+}
+
+/**
+ * What the last "what now" update said, and when.
+ *
+ * Fed back to the server on the next update so it can skip anything that
+ * hasn't changed. Time-scoped to today: yesterday's facts are not facts.
+ */
+export type NowMemory = { at: number; keys: string[] };
+
+/** Bounded, because this goes into a query string. */
+const MAX_KEYS = 20;
+const MAX_KEY_CHARS = 1500;
+
+export function readNowMemory(): NowMemory | null {
+  try {
+    const raw = localStorage.getItem(NOW_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as NowMemory & { day?: string };
+    if (parsed?.day !== today() || !Array.isArray(parsed.keys)) return null;
+
+    return { at: Number(parsed.at) || 0, keys: parsed.keys.filter((k) => typeof k === "string") };
+  } catch {
+    return null;
+  }
+}
+
+export function writeNowMemory(keys: string[]): void {
+  try {
+    const previous = readNowMemory();
+    // Newest last, deduped, then trimmed from the front.
+    const merged = [...new Set([...(previous?.keys ?? []), ...keys])].slice(-MAX_KEYS);
+
+    let trimmed = merged;
+    while (trimmed.join(",").length > MAX_KEY_CHARS && trimmed.length > 1) {
+      trimmed = trimmed.slice(1);
+    }
+
+    localStorage.setItem(NOW_KEY, JSON.stringify({ day: today(), at: Date.now(), keys: trimmed }));
+  } catch {
+    /* private mode — every update is the first one */
   }
 }
 

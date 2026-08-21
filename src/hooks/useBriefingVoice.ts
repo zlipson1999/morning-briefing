@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { hasBriefedToday, markBriefedToday } from "@/lib/briefedToday";
+import { hasBriefedToday, markBriefedToday, readNowMemory, writeNowMemory } from "@/lib/briefedToday";
 
 export type VoiceState = "idle" | "loading" | "speaking" | "blocked" | "unsupported";
 
@@ -96,6 +96,9 @@ export function useBriefingVoice() {
   const objectUrlRef = useRef<string | null>(null);
   // What the replay button should repeat, and what to mark once it plays.
   const modeRef = useRef<SpeakMode>("morning");
+  // Facts this update covered. Committed only once it actually speaks — an
+  // update nobody heard must not count as having been said.
+  const pendingKeysRef = useRef<string[]>([]);
 
   const muted = useSyncExternalStore(subscribeMuted, () => muteSnapshot, () => false);
   const supported = useSyncExternalStore(subscribeSupport, canSpeak, () => true);
@@ -128,6 +131,15 @@ export function useBriefingVoice() {
     }
   }, []);
 
+  /** Called the moment audio or speech actually starts, never before. */
+  const commitSpoken = useCallback(() => {
+    if (modeRef.current === "morning") markBriefedToday();
+    if (pendingKeysRef.current.length) {
+      writeNowMemory(pendingKeysRef.current);
+      pendingKeysRef.current = [];
+    }
+  }, []);
+
   const stop = useCallback(() => {
     releaseAudio();
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -153,10 +165,10 @@ export function useBriefingVoice() {
    * which is a different thing entirely: the audio exists, the browser just
    * wants a gesture first, so that becomes `blocked` rather than a fallback.
    */
-  const playServerAudio = useCallback(async (mode: SpeakMode): Promise<boolean> => {
+  const playServerAudio = useCallback(async (query: string): Promise<boolean> => {
     let blob: Blob;
     try {
-      const res = await fetch(`/api/briefing/audio?mode=${mode}`);
+      const res = await fetch(`/api/briefing/audio?${query}`);
       // 501 means no backend is configured — an expected state, not a failure.
       if (!res.ok) return false;
       blob = await res.blob();
@@ -174,7 +186,7 @@ export function useBriefingVoice() {
     audio.onplaying = () => {
       setVoiceSource("server");
       setState("speaking");
-      if (modeRef.current === "morning") markBriefedToday();
+      commitSpoken();
     };
     audio.onended = () => {
       setState("idle");
@@ -189,7 +201,7 @@ export function useBriefingVoice() {
       setState("blocked");
       return true;
     }
-  }, [releaseAudio]);
+  }, [releaseAudio, commitSpoken]);
 
   /**
    * Reads the briefing with the browser's own engine.
@@ -231,7 +243,7 @@ export function useBriefingVoice() {
         spokeAnything = true;
         setVoiceSource("browser");
         setState("speaking");
-        if (modeRef.current === "morning") markBriefedToday();
+        commitSpoken();
       };
       if (index === chunks.length - 1) {
         utterance.onend = () => setState("idle");
@@ -249,7 +261,7 @@ export function useBriefingVoice() {
     window.setTimeout(() => {
       if (!spokeAnything) setState((current) => (current === "loading" ? "blocked" : current));
     }, 1800);
-  }, []);
+  }, [commitSpoken]);
 
   /**
    * Fetches the briefing and reads it, preferring the server's voice.
@@ -276,17 +288,28 @@ export function useBriefingVoice() {
 
       setState("loading");
 
+      const params = new URLSearchParams({ mode });
+      if (mode === "now") {
+        const memory = readNowMemory();
+        if (memory?.at) params.set("since", String(memory.at));
+        if (memory?.keys.length) params.set("said", memory.keys.join(","));
+      }
+      const query = params.toString();
+
       let text: string;
       try {
-        const res = await fetch(`/api/briefing?mode=${mode}`);
+        const res = await fetch(`/api/briefing?${query}`);
         if (!res.ok) throw new Error(String(res.status));
         text = await res.text();
+        pendingKeysRef.current = (res.headers.get("X-Briefing-Keys") ?? "")
+          .split(",")
+          .filter(Boolean);
       } catch {
         setState("idle");
         return;
       }
 
-      if (await playServerAudio(mode)) return;
+      if (await playServerAudio(query)) return;
       speakLocally(text);
     },
     [playServerAudio, speakLocally],
