@@ -1,10 +1,9 @@
 # Morning Briefing
 
-A dark, single-screen dashboard for the start of the day: today's calendar,
-unread email, and the task list, side by side.
+A dark, single-screen dashboard for the start of the day: schedule, inbox,
+tasks, news, weather and portfolio, all visible without scrolling.
 
-Built with Next.js 16 (App Router) + Tailwind CSS v4. All three panels run on
-mock data right now — no accounts are connected.
+Next.js 16 (App Router), Tailwind CSS v4, TypeScript.
 
 ## Run it
 
@@ -15,51 +14,117 @@ npm run dev
 
 Then open http://localhost:3000.
 
-## What's in it
+Nothing needs configuring to start — news and weather work immediately with no
+API keys, and the portfolio panel runs on sample data until you connect
+E*TRADE.
 
-| Panel | Behaviour |
-| --- | --- |
-| **Today's schedule** | Events are time-aware — anything already finished dims and strikes through, the one you're in is tagged `NOW`, and the next one up is tagged `NEXT`. The header counts how many are left. |
-| **Unread email** | Click a message to mark it read (click again to undo); the unread count in the header follows. Senders get an initials avatar, important mail is starred, attachments are flagged. |
-| **Task list** | Tick a task to complete it. The progress bar and the open/done counts update live, and anything past due is called out in red. |
+## The panels
 
-The header greets you by name and shows today's date and local time. Both are
-read from the *viewer's* clock via `src/lib/useClock.ts`, which uses
-`useSyncExternalStore` so the server and client render identical markup — no
-hydration mismatch, no timezone drift.
+| Panel | Source | Behaviour |
+| --- | --- | --- |
+| **Today's schedule** | mock | Finished events dim and strike through, the current one is tagged `NOW` and the next `NEXT`, header counts what's left |
+| **Unread email** | mock | Click to toggle read; the unread count follows |
+| **Task list** | mock | Tick to complete; live progress bar and overdue callout |
+| **Today's news** | **live** | Local and world headlines over curated RSS. Every item carries its source and age |
+| **Weather** | **live** | Open-Meteo, in the header beside the date |
+| **Portfolio** | **live-wired** | Real E*TRADE positions and day P/L once connected; sample data until then |
 
-## Layout
+Calendar, email and tasks still run on the typed mock arrays in
+`src/lib/data.ts` — swap them for real APIs the same way the live panels work.
+
+## Configuration
+
+Everything personal lives in `src/lib/config.ts`: your name, your fallback
+location, and the panel refresh intervals.
+
+News sources live in `src/lib/feeds.ts`. **Adding your own city's outlet there
+is the single highest-value edit in this repo** — a real local newsroom's feed
+beats any aggregator. Cities not listed fall back to Google News' geo feed,
+which covers everywhere but runs noticeably staler (a 2026 survey found a
+median item age around 6.6 days, with only ~7.6% under six hours). That's why
+every headline shows its age, and anything over a day old is flagged amber.
+
+## Connecting E*TRADE
+
+The portfolio panel shows sample positions until you add a key.
+
+1. Sign in at [developer.etrade.com](https://developer.etrade.com) with your
+   E*TRADE account.
+2. Complete the API Developer Agreement and the User Intent Survey. An
+   individual key is issued immediately; sandbox first, then production.
+3. `cp .env.example .env.local` and fill in the key and secret.
+4. Restart, then hit **Connect E*TRADE** in the portfolio panel.
+
+**Expect to reconnect every morning.** E*TRADE is OAuth 1.0a, and its access
+tokens expire at midnight US Eastern — not a refresh-token flow, an actual
+re-login. There's also a two-hour inactivity timeout. For a dashboard you open
+once a day that's close to free, and the panel prompts you when it happens.
+
+Access tokens are held in server memory only. They are never written to a
+cookie, never sent to the browser, and never persisted to disk — the browser
+holds an opaque session id and nothing else.
+
+## Speaking the briefing
+
+`GET /api/briefing` returns the whole thing as plain prose, built for a
+text-to-speech engine:
+
+```bash
+curl -s localhost:3000/api/briefing | piper --model en_US-lessac-medium --output_file brief.wav
+```
+
+It's deliberately a plain HTTP endpoint rather than an integration, so any
+assistant, cron job or phone shortcut can consume it without this app knowing
+anything about them. Each section is independent — a dead upstream drops that
+sentence rather than the whole briefing.
+
+## How the live panels work
+
+Every live panel goes through the same path, so loading, failure, staleness and
+partial failure are handled once instead of per panel:
 
 ```
 src/
-  app/
-    layout.tsx        root layout, Inter font, metadata
-    page.tsx          three-column grid, stacks on mobile
-    globals.css       dark theme tokens + aurora background
-    icon.svg          favicon
-  components/
-    Header.tsx        greeting, date, live clock
-    Panel.tsx         shared panel shell (title, accent, count, scroll body)
-    CalendarPanel.tsx
-    EmailPanel.tsx
-    TaskPanel.tsx
-    icons.tsx         inline SVG icon set (no icon dependency)
+  app/api/{news,weather,briefing,etrade/*}/route.ts   server-side fetching
   lib/
-    data.ts           mock events, emails and tasks — and USER_NAME
-    useClock.ts       hydration-safe clock
+    cache.ts        TTL cache: dedupes in-flight calls, serves stale on failure
+    panel.ts        the one response shape every panel route returns
+    feeds.ts        curated RSS sources — edit this
+    config.ts       name, home location, refresh intervals
+    providers/
+      news.ts       RSS/Atom/RDF parsing, per-feed error isolation
+      weather.ts    Open-Meteo + Nominatim reverse geocoding
+      etrade/       OAuth 1.0a signing, live client, mock provider
+  hooks/
+    usePanelData.ts loading/error/stale/refresh, pauses polling when tab hidden
+    useLocation.ts  geolocation with configured fallback
 ```
 
-## Changing the data
+Three deliberate choices worth knowing:
 
-Everything the dashboard shows lives in `src/lib/data.ts`. Change `USER_NAME`
-at the top of that file to change the name in the header. Each of the three
-exports (`events`, `emails`, `initialTasks`) is a plain typed array — swapping
-one for a real API response later only means matching its type.
+- **One bad source never blanks a panel.** Feeds are fetched concurrently and
+  failures are isolated; the panel renders what succeeded and names what
+  didn't. If a refresh fails outright, the last good value is served and
+  labelled `CACHED`.
+- **Secrets stay server-side.** OAuth 1.0a signs every request with the
+  consumer secret, so all E*TRADE calls happen in route handlers.
+- **Polling pauses when the tab is hidden.** A backgrounded dashboard
+  shouldn't hammer upstream APIs all day.
+
+## Tests
+
+```bash
+npm test
+```
+
+Covers the two places bugs actually hide: RSS parsing (RSS 2.0, Atom and RDF,
+CDATA, entity escapes, missing fields, junk input, cross-outlet dedupe) and
+OAuth 1.0a signing, which is pinned against the published OAuth 1.0 signature
+vector so a broken signature is caught without needing live credentials.
 
 ## Note on `next.config.ts`
 
 `allowedDevOrigins` is set because Next 16 blocks its own dev-only resources
-(`/_next/static`, HMR) for any origin other than `localhost`. Without it the
-page server-renders but never hydrates when you reach the dev server over
-`127.0.0.1`, a LAN IP, or a forwarded port — the panels look right but nothing
-clicks.
+for any origin other than `localhost`. Without it the page server-renders but
+never hydrates when you reach the dev server over `127.0.0.1`, a LAN IP or a
+forwarded port — the panels look right but nothing clicks.

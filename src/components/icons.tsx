@@ -82,3 +82,30 @@ export function SunIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function NewspaperIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden>
+      <path d="M4 6h11a1 1 0 0 1 1 1v12H5a2 2 0 0 1-2-2V7a1 1 0 0 1 1-1Z" />
+      <path d="M16 10h3a1 1 0 0 1 1 1v6a2 2 0 0 1-2 2M6.5 9.5h6M6.5 12.5h6M6.5 15.5h4" />
+    </svg>
+  );
+}
+
+export function ChartIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden>
+      <path d="M4 19V5M20 19H4" />
+      <path d="m7.5 14.5 3.5-4 3 2.5 4.5-6" />
+    </svg>
+  );
+}
+
+export function ExternalIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden>
+      <path d="M14 4h6v6M20 4l-8.5 8.5" />
+      <path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+    </svg>
+  );
+}

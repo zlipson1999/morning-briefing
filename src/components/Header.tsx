@@ -1,6 +1,7 @@
 "use client";
 
 import { SunIcon } from "./icons";
+import WeatherStrip from "./WeatherStrip";
 import { USER_NAME } from "@/lib/data";
 import { useClock } from "@/lib/useClock";
 
@@ -49,6 +50,9 @@ export default function Header() {
         <p className="mt-1 text-sm text-mist-400 tabular-nums">
           {timeLabel ? `Local time ${timeLabel}` : " "}
         </p>
+        <div className="mt-2 flex sm:justify-end">
+          <WeatherStrip />
+        </div>
       </div>
     </header>
   );

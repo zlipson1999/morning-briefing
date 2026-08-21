@@ -30,7 +30,7 @@ function timeLabel(hhmm: string) {
   return h >= 12 ? `Yesterday ${clock}` : clock;
 }
 
-export default function EmailPanel() {
+export default function EmailPanel({ className }: { className?: string }) {
   const [readIds, setReadIds] = useState<string[]>([]);
   const unread = emails.filter((e) => !readIds.includes(e.id));
 
@@ -46,6 +46,7 @@ export default function EmailPanel() {
       accent="#f0a63c"
       meta={unread.length === 0 ? "Inbox zero" : `${unread.length} unread`}
       delay={120}
+      className={className}
     >
       <ul className="flex flex-col gap-1">
         {emails.map((e: Email) => {

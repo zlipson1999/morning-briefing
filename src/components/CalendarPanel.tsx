@@ -39,7 +39,7 @@ function duration(e: CalendarEvent) {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
-export default function CalendarPanel() {
+export default function CalendarPanel({ className }: { className?: string }) {
   const nowMs = useClock();
   const minutesNow =
     nowMs === null
@@ -63,6 +63,7 @@ export default function CalendarPanel() {
       accent="#7c8cff"
       meta={`${remaining} left of ${events.length}`}
       delay={60}
+      className={className}
     >
       <ul className="flex flex-col gap-1">
         {events.map((e) => {

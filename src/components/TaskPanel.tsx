@@ -11,7 +11,7 @@ const PRIORITY: Record<Task["priority"], { label: string; color: string }> = {
   low: { label: "Low", color: "#6f7887" },
 };
 
-export default function TaskPanel() {
+export default function TaskPanel({ className }: { className?: string }) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
 
   const toggle = (id: string) =>
@@ -30,6 +30,7 @@ export default function TaskPanel() {
       accent="#43cf9c"
       meta={`${open} open · ${done} done`}
       delay={180}
+      className={className}
     >
       <div className="px-3 pt-1 pb-3">
         <div className="h-1.5 overflow-hidden rounded-full bg-ink-700">
