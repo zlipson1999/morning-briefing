@@ -24,15 +24,15 @@ E*TRADE.
 | Panel | Source | Behaviour |
 | --- | --- | --- |
 | **Today's schedule** | **live-wired** | Real Google Calendar over a Zapier push; a sample day until one arrives. Finished events dim and strike through, the current one is tagged `NOW` and the next `NEXT` |
-| **Unread email** | mock | Click to toggle read; the unread count follows. Persists for the day |
-| **Task list** | mock | Tick to complete; live progress bar and overdue callout. Persists for the day |
+| **Waiting on you** | **live-wired** | Filtered mail over a Zapier push; sample data until one arrives. Clear an item to drop it from today's list |
+| **Task list** | **live-wired** | Todoist, Google Tasks or Things over a Zapier push; sample data until one arrives. Overdue first, then by due date |
 | **Today's news** | **live** | Local and world headlines over curated RSS, with the local list ranked by what matters rather than what's newest. Every item carries its source and age |
 | **Weather** | **live** | Open-Meteo, in the header beside the date — click it for the full forecast |
 | **Portfolio** | **live-wired** | Real E*TRADE positions and day P/L once connected; sample data until then |
 | **Leave by** | **live** | Drive time to the next event with a real address, counted back to a walk-out-the-door time |
 
-Email and tasks still run on the typed sample arrays in `src/lib/data.ts` —
-swap them for real APIs the same way the live panels work.
+Nothing here needs an API key to be useful: every panel falls back to sample
+data and says so.
 
 ## Configuration
 
@@ -95,36 +95,59 @@ Expiry is still enforced server-side rather than left to the cookie: a token
 minted on a previous US Eastern day is treated as dead, so you get a reconnect
 prompt instead of a 401.
 
-## The calendar, pushed in from Zapier
+## Calendar, tasks and mail, pushed in from Zapier
 
-Rather than build a Google OAuth flow for one person, the schedule panel takes
-a push. Point a Zap at it and the calendar is real; until one arrives the panel
-shows a sample day and says so.
+Rather than build three OAuth flows for one person, the three panels that used
+to be mock take a push. Point a Zap at each and they're real; until one arrives
+the panel shows sample data and says so.
 
-In Zapier: **Google Calendar** trigger → **Webhooks by Zapier**, POST to
+In Zapier: your trigger → **Webhooks by Zapier**, POST with the header
+`Authorization: Bearer $CALENDAR_INGEST_TOKEN` to
 
-```
-http://<machine>.<tailnet>.ts.net:3000/api/calendar/ingest
-```
+| Route | Trigger |
+| --- | --- |
+| `/api/calendar/ingest` | Google Calendar |
+| `/api/tasks/ingest` | Todoist, Google Tasks, Things |
+| `/api/email/ingest` | Gmail — **with a search**, see below |
 
-with the header `Authorization: Bearer $CALENDAR_INGEST_TOKEN` and the event as
-the payload. A `DELETE ?id=<event id>` on the same route handles a deletion Zap.
+`DELETE ?id=<id>` on any of them handles a deletion Zap. These are the only
+endpoints in the app that write, so they are the only ones with a secret, and
+with `CALENDAR_INGEST_TOKEN` unset they refuse everything rather than accepting
+anonymous writes. One token covers all three: three secrets to rotate would just
+mean two that never get rotated.
 
-This is the only endpoint in the app that writes, so it is the only one with a
-secret — and with `CALENDAR_INGEST_TOKEN` unset it refuses everything rather
-than accepting anonymous writes. A disabled feature is a better default than an
-open one, even on a tailnet.
+**Zapier does not send one shape**, so none is demanded. Nested
+(`start.dateTime`), flattened (`start__dateTime`) and renamed (`start_time`)
+fields all parse. Attendees arrive as strings or as Google's objects. A bare
+`date` becomes an all-day event; a missing end time defaults to an hour. Todoist
+counts priority 4 down to 1 while everyone else sends a word — both work, and
+anything unrecognised becomes medium rather than low, because guessing low
+quietly buries work. Gmail's `from__name`/`from__email` pair and a raw
+`Priya Raghavan <priya@nimbus.dev>` header both resolve.
 
-Zapier does not send one shape. Nested (`start.dateTime`), flattened
-(`start__dateTime`) and renamed (`start_time`) fields all parse, attendees
-arrive as strings or as Google's objects, a bare `date` becomes an all-day
-event, and a missing end time defaults to an hour. An event with no title or no
-start is rejected rather than guessed at; everything else in the batch still
-lands. The response echoes back what was understood, so a Zap's test run shows
-you whether the location became a drivable address.
+A record that can't be read at all — an event with no start, a task with no
+title — is rejected while the rest of the batch still lands, and the response
+echoes back what was understood. Run your Zap's test and you can see whether a
+calendar location became a drivable address.
 
-Events are kept in `.data/calendar.json` — upserted by id, written through one
-queue so simultaneous pushes can't interleave, and pruned after two days.
+**Filter the Gmail Zap.** Use a search like `is:important is:unread`, or a list
+of the people you actually answer. Pushing everything turns the panel into a
+second inbox, which is the thing a briefing exists to save you from.
+
+**Nothing here can write back.** A push is one-directional, so clearing a
+message means "handled, stop showing me this today" rather than marking it read
+in Gmail, and ticking a task clears it from today's view rather than completing
+it in Todoist. Both panels say so. A checkbox that quietly lies about the state
+of your real inbox is worse than no checkbox.
+
+**When a Zap stops firing**, the panel says `Last synced 3 days ago` rather than
+presenting a stale push as today. A calendar silently showing yesterday is the
+worst version of that failure, which is why the threshold is a day.
+
+Records are kept in `.data/{calendar,tasks,mail}.json` — upserted by id, written
+through one queue so simultaneous pushes can't interleave, and pruned on their
+own schedule (events after two days, done tasks after a week, mail after a
+week).
 
 ## Leave-by time
 
@@ -274,7 +297,10 @@ src/
       etrade/seal.ts  AES-256-GCM sealing for the session cookie
       commute.ts    OSRM routing + Nominatim geocoding for the leave-by time
       news-rank.ts  ranks local headlines by consequence, falls back to recency
-    calendar/       the Zapier-fed store: normalise, persist, read today
+    push/           shared ingest auth and the serialised JSON store
+    calendar/       Zapier-fed schedule: normalise, persist, read today
+    tasks/          Zapier-fed task list, sorted overdue-first
+    mail/           Zapier-fed inbox, filtered upstream
     tts/            server-side speech: Piper or ElevenLabs, cached per briefing
     briefing/
       snapshot.ts   everything known about today, gathered once
@@ -284,6 +310,7 @@ src/
     ArcReactor.tsx    generated SVG geometry, animated in CSS
     BootSequence.tsx  start-up overlay, skippable
     LeaveBy.tsx       the walk-out-the-door banner
+    SourceNotice.tsx  says when a panel is on sample data or a stale push
     VoiceProvider.tsx owns the boot overlay and the speech session
     WeatherStrip.tsx  header summary; click for the full forecast
   hooks/
@@ -345,10 +372,12 @@ The suite covers the places bugs actually hide:
   every upstream dead, speaks symbols as words, stays quiet about a portfolio
   that isn't connected, holds the local-news-first order, and hoists an
   imminent leave-by above it.
-- **Calendar ingest** — every Zapier field shape, the address test that gates
-  leave-by, and a store that survives a restart, upserts by id, doesn't lose
-  simultaneous writes, and distinguishes an empty real calendar from no
-  calendar at all.
+- **Ingest** — every Zapier field shape for all three sources, the address test
+  that gates leave-by, sender parsing, priority mapping, and a store that
+  survives a restart, upserts by id, doesn't lose simultaneous writes, and
+  distinguishes an empty real calendar from no calendar at all.
+- **Ingest auth** — bearer and header forms, a near-miss token rejected on
+  length before comparison, and everything refused when no token is set.
 - **News ranking** — that a model's output is validated rather than trusted:
   out-of-range, duplicate and non-numeric positions are ignored, a chatty or
   fenced reply still parses, and everything else falls back to recency.

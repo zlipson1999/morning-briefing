@@ -4,6 +4,7 @@ import Panel from "./Panel";
 import { CalendarIcon, PinIcon, UsersIcon } from "./icons";
 import type { CalendarEvent } from "@/lib/data";
 import type { TodaysCalendar } from "@/lib/calendar";
+import SourceNotice from "./SourceNotice";
 import { usePanelData } from "@/hooks/usePanelData";
 import { useClock } from "@/lib/useClock";
 
@@ -70,19 +71,21 @@ export default function CalendarPanel({ className }: { className?: string }) {
       icon={<CalendarIcon className="size-full" />}
       accent="#7c8cff"
       meta={events.length ? `${remaining} left of ${events.length}` : undefined}
-      delay={60}
+      delay={240}
       className={className}
       loading={state.status === "loading"}
       error={state.status === "error" ? state.message : null}
       onRetry={state.refresh}
       stale={state.status === "ready" && state.stale}
     >
-      {calendar?.source === "sample" && (
-        <p className="mx-3 mb-2 rounded-lg border border-cal/25 bg-cal/8 px-3 py-2 text-[11px] leading-relaxed text-mist-300">
-          Showing a sample day. Point a Zap at{" "}
-          <code className="rounded bg-ink-800 px-1 py-0.5">/api/calendar/ingest</code> to see your
-          real one.
-        </p>
+      {calendar && (
+        <SourceNotice
+          source={calendar.source}
+          syncedAt={calendar.syncedAt}
+          accent="#7c8cff"
+          noun="day"
+          endpoint="/api/calendar/ingest"
+        />
       )}
 
       {calendar?.source === "zapier" && events.length === 0 && (

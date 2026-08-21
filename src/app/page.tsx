@@ -16,16 +16,19 @@ export default function Home() {
       <Header />
       <LeaveBy />
 
+      {/* The grid reads in the same order the briefing speaks: what's
+          happening near you, then what you owe, then who's waiting on you,
+          then the day's shape, then the money. */}
       <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-3 lg:grid-rows-[1.15fr_1fr] xl:grid-cols-6">
-        <CalendarPanel className="xl:col-span-2" />
+        <NewsPanel className="lg:col-span-2 xl:col-span-3" />
+        <TaskPanel className="xl:col-span-3" />
         <EmailPanel className="xl:col-span-2" />
-        <TaskPanel className="xl:col-span-2" />
-        <NewsPanel className="lg:col-span-2 xl:col-span-4" />
+        <CalendarPanel className="xl:col-span-2" />
         <PortfolioPanel className="xl:col-span-2" />
       </div>
 
       <footer className="shrink-0 text-center text-[11px] tracking-wide text-mist-400">
-        Email and tasks are sample data · calendar, news, weather, commute and portfolio are live-wired
+        Calendar, tasks and email are pushed in from Zapier · news, weather, commute and portfolio are live
       </footer>
     </main>
   );

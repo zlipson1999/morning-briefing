@@ -43,7 +43,7 @@ export default function NewsPanel({ className }: { className?: string }) {
       icon={<NewspaperIcon className="size-full" />}
       accent="#5cc8de"
       meta={bundle?.place}
-      delay={240}
+      delay={60}
       className={className}
       loading={state.status === "loading"}
       error={state.status === "error" ? state.message : null}

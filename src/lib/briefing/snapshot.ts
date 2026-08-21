@@ -1,6 +1,7 @@
 import { HOME_LOCATION, USER_NAME } from "@/lib/config";
-import { emails, initialTasks } from "@/lib/data";
 import { getTodaysEvents } from "@/lib/calendar";
+import { getInbox } from "@/lib/mail";
+import { getTasks } from "@/lib/tasks";
 import type { CalendarEvent } from "@/lib/data";
 import { nextCommute, type Commute } from "@/lib/providers/commute";
 import { getNews } from "@/lib/providers/news";
@@ -125,6 +126,7 @@ export async function gatherSnapshot({
   // The calendar is read first: the commute depends on it, and everything
   // else can be fetched alongside.
   const events = await getTodaysEvents(now);
+  const [inbox, taskList] = await Promise.all([getInbox(now), getTasks(now)]);
 
   const [weather, portfolio, news, commute] = await Promise.all([
     getWeather(latitude, longitude, place)
@@ -151,7 +153,7 @@ export async function gatherSnapshot({
     nextCommute(events, nowMinutes, { latitude, longitude }).catch(() => null),
   ]);
 
-  const openTasks = initialTasks.filter((task) => !task.done);
+  const openTasks = taskList.items.filter((task) => !task.done);
 
   return {
     userName: USER_NAME,
@@ -184,25 +186,25 @@ export async function gatherSnapshot({
       conflicts: conflictsAfter(events, nowMinutes),
     },
     inbox: {
-      unread: emails.length,
-      messages: emails.map((email) => ({
-        sender: email.sender,
-        subject: email.subject,
-        preview: email.preview,
-        important: email.important,
-        label: email.label,
+      unread: inbox.messages.length,
+      messages: inbox.messages.map((message) => ({
+        sender: message.sender,
+        subject: message.subject,
+        preview: message.preview,
+        important: message.important,
+        label: message.label,
       })),
     },
     tasks: {
       open: openTasks.length,
-      done: initialTasks.length - openTasks.length,
+      done: taskList.items.length - openTasks.length,
       items: openTasks.map((task) => ({
         title: task.title,
         note: task.note,
-        due: task.due,
+        due: task.dueLabel,
         priority: task.priority,
         project: task.project,
-        overdue: task.due.toLowerCase() === "yesterday",
+        overdue: task.overdue,
       })),
     },
     portfolio,

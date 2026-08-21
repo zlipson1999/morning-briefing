@@ -1,45 +1,16 @@
-import crypto from "node:crypto";
 import { normalizePayload, removeEvent, upsertEvents } from "@/lib/calendar";
+import { authorised, refuse } from "@/lib/push/auth";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Where Zapier pushes Google Calendar.
  *
- * This is the one endpoint in the app that *writes*, so it is the one that
- * needs a shared secret. With `CALENDAR_INGEST_TOKEN` unset it refuses
- * everything rather than accepting anonymous writes — a disabled feature is a
- * better default than an open one, even on a tailnet.
- *
- * In Zapier: Webhooks by Zapier → POST, to
+ * In Zapier: Google Calendar trigger → Webhooks by Zapier → POST to
  * `http://<machine>.<tailnet>.ts.net:3000/api/calendar/ingest`, with a header
- * `Authorization: Bearer <your token>` and the Google Calendar event as the
- * payload. Nested, `__`-flattened, and renamed field shapes all parse.
+ * `Authorization: Bearer <CALENDAR_INGEST_TOKEN>` and the event as the
+ * payload. Nested, `__`-flattened and renamed field shapes all parse.
  */
-
-function authorised(request: Request): boolean {
-  const expected = process.env.CALENDAR_INGEST_TOKEN;
-  if (!expected) return false;
-
-  const header = request.headers.get("authorization") ?? "";
-  const supplied = header.replace(/^Bearer\s+/i, "") || request.headers.get("x-ingest-token") || "";
-
-  const a = Buffer.from(supplied);
-  const b = Buffer.from(expected);
-  // Compare lengths first: timingSafeEqual throws on a mismatch.
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
-
-function refuse(): Response {
-  if (!process.env.CALENDAR_INGEST_TOKEN) {
-    return Response.json(
-      { error: "Calendar ingest is disabled. Set CALENDAR_INGEST_TOKEN to enable it." },
-      { status: 501 },
-    );
-  }
-  return Response.json({ error: "Unauthorized." }, { status: 401 });
-}
-
 export async function POST(request: Request) {
   if (!authorised(request)) return refuse();
 
