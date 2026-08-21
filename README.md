@@ -137,6 +137,21 @@ In Zapier: your trigger → **Webhooks by Zapier**, POST with the header
 | `/api/tasks/ingest` | Todoist, Google Tasks, Things |
 | `/api/email/ingest` | Gmail — **with a search**, see below |
 
+**Zapier has to be able to reach your machine.** It runs in the cloud, and a
+tailnet-only address doesn't exist from out there — so pointing a Zap at
+`http://<machine>.<tailnet>.ts.net:3000/...` will not work. Expose the app to
+Zapier with [Tailscale Funnel](https://tailscale.com/kb/1223/funnel):
+
+```bash
+tailscale funnel --bg 3000
+```
+
+That yields a public `https://<machine>.<tailnet>.ts.net` URL the Zaps can
+POST to. The ingest routes are the only ones that write and they're
+token-gated, but be clear-eyed that the read routes become public too; if that
+bothers you, keep Funnel off and swap the push for a direct poll of the
+source's API instead.
+
 `DELETE ?id=<id>` on any of them handles a deletion Zap. These are the only
 endpoints in the app that write, so they are the only ones with a secret, and
 with `CALENDAR_INGEST_TOKEN` unset they refuse everything rather than accepting
@@ -299,10 +314,27 @@ own ACLs are what gate access, not the bind address. `next.config.ts` already
 allows `*.ts.net` and the `100.64.0.0/10` range as dev origins, without which
 the page server-renders on your phone but never hydrates.
 
-Then open `http://<machine>.<tailnet>.ts.net:3000` and add it to your home
-screen. The web manifest makes it launch standalone, without browser chrome;
-below `lg` the panels stack and the page scrolls normally, and the theme
-colour and `viewport-fit` handle the status bar and the notch.
+Then, on the phone (the steps are Safari's, but Android Chrome is the same
+shape):
+
+1. Install the Tailscale app, sign into the same tailnet, flip it on.
+2. Open `http://<machine>.<tailnet>.ts.net:3000` in the browser.
+3. Share button → **Add to Home Screen**. It gets an icon and launches
+   full-screen, without browser chrome; below `lg` the panels stack and the
+   page scrolls normally, and the theme colour and `viewport-fit` handle the
+   status bar and the notch.
+
+No Tailscale yet and just want a first look? On the same Wi-Fi as the PC,
+`npm run build && npm run start:tailscale`, find the PC's local IP
+(`ipconfig` / `ifconfig`), and open `http://<that-ip>:3000` on the phone.
+Production mode matters there: the dev server only trusts the origins in
+`next.config.ts`, so over a bare LAN IP `next dev` renders but never hydrates.
+
+iPhone specifics, honestly: Safari ships no speech recognition, so the
+"Hey Miles" toggle hides itself there — the briefing still speaks, you just
+start it with a tap. And Safari's built-in voices are the worst of any
+platform, which is exactly what the server voice exists for: configure Piper
+or ElevenLabs on the PC and the phone plays that audio instead.
 
 ## "Hey Miles"
 
