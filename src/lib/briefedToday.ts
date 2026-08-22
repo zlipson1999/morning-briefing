@@ -159,3 +159,4 @@ export function useBriefedToday(): boolean {
 export function useIsEvening(): boolean {
   return useSyncExternalStore(() => () => {}, () => new Date().getHours() >= 20, () => false);
 }
+
