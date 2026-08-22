@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   } : null;
 
   const prompt = `Decide whether this is a request to perform exactly one supported action.
-Supported kinds: calendar.create, task.create, task.complete, email.dismiss, watchlist.add, watchlist.remove.
+Supported kinds: calendar.create, task.create, task.complete, email.dismiss, watchlist.add, watchlist.remove, memory.remember, memory.forget.
 Return JSON only. If it is not a supported action or required details are ambiguous, return {"proposal":null}.
 Otherwise return {"proposal":{"summary":"plain confirmation sentence","action":{...}}}.
 calendar.create requires title, ISO start, ISO end, optional location. Default duration is 30 minutes only when a start is clear.
