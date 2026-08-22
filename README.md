@@ -11,6 +11,9 @@ Next.js 16 (App Router), Tailwind CSS v4, TypeScript.
 
 ## Run it
 
+**Starting from zero?** [SETUP.md](./SETUP.md) is the complete walkthrough —
+Node to Google to your phone, in order.
+
 ```bash
 npm install
 npm run dev
