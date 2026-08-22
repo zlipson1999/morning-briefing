@@ -1,6 +1,7 @@
 import { HOME_LOCATION } from "@/lib/config";
-import { claudeIsConfigured, composeWithClaude, type BriefingMode } from "@/lib/briefing/claude";
+import { claudeIsConfigured, composeWithClaude } from "@/lib/briefing/claude";
 import { composeEvening } from "@/lib/briefing/evening";
+import { briefingMode } from "@/lib/briefing/mode";
 import { composeNow, nowKeys } from "@/lib/briefing/now";
 import { gatherSnapshot } from "@/lib/briefing/snapshot";
 import { composeTemplate } from "@/lib/briefing/template";
@@ -47,9 +48,7 @@ export async function GET(request: Request) {
     return Response.json(snapshot, { headers: { "Cache-Control": "no-store" } });
   }
 
-  const requestedMode = params.get("mode");
-  const mode: BriefingMode =
-    requestedMode === "now" || requestedMode === "evening" ? requestedMode : "morning";
+  const mode = briefingMode(params.get("mode"));
 
   // What the caller was told last time, so an update can skip what hasn't
   // changed rather than repeating itself twenty minutes later.
