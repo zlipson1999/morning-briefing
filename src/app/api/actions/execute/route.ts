@@ -3,6 +3,7 @@ import { createGoogleCalendarEvent } from "@/lib/providers/google/calendar";
 import { completeGoogleTask, createGoogleTask } from "@/lib/providers/google/tasks";
 import { updateWatchlist } from "@/lib/watchlist";
 import { unseal } from "@/lib/seal";
+import { forget, remember } from "@/lib/memory";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,12 @@ export async function POST(request: Request) {
         break;
       case "watchlist.remove":
         await updateWatchlist(action.symbol, "remove");
+        break;
+      case "memory.remember":
+        await remember(action.text);
+        break;
+      case "memory.forget":
+        await forget(action.query);
         break;
       case "email.dismiss":
         // This is intentionally local to Miles. Gmail remains read-only; the
