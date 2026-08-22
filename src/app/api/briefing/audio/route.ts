@@ -1,5 +1,6 @@
 import { HOME_LOCATION } from "@/lib/config";
 import { composeWithClaude, type BriefingMode } from "@/lib/briefing/claude";
+import { composeEvening } from "@/lib/briefing/evening";
 import { composeNow, nowKeys } from "@/lib/briefing/now";
 import { gatherSnapshot } from "@/lib/briefing/snapshot";
 import { composeTemplate } from "@/lib/briefing/template";
@@ -34,7 +35,9 @@ export async function GET(request: Request) {
     place: params.get("place") ?? HOME_LOCATION.label,
   });
 
-  const mode: BriefingMode = params.get("mode") === "now" ? "now" : "morning";
+  const requestedMode = params.get("mode");
+  const mode: BriefingMode =
+    requestedMode === "now" || requestedMode === "evening" ? requestedMode : "morning";
 
   // What the caller was told last time, so an update can skip what hasn't
   // changed rather than repeating itself twenty minutes later.
@@ -51,7 +54,10 @@ export async function GET(request: Request) {
     params.get("author") === "template" ? null : await composeWithClaude(snapshot, mode, context);
 
   const deterministic = mode === "now" ? composeNow(snapshot, context) : null;
-  const text = written ?? deterministic?.text ?? composeTemplate(snapshot);
+  const text =
+    written ??
+    deterministic?.text ??
+    (mode === "evening" ? composeEvening(snapshot) : composeTemplate(snapshot));
   const keys = mode === "now" ? (deterministic?.keys ?? nowKeys(snapshot, context)) : [];
 
   const spoken = await speakBriefing(text);
