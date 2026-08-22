@@ -26,5 +26,16 @@ describe("Miles actions", () => {
     expect(deterministicProposal("Add buy milk to my task list")?.action).toEqual({ kind: "task.create", title: "buy milk" });
     expect(deterministicProposal("remove NVDA from my watchlist")?.action).toEqual({ kind: "watchlist.remove", symbol: "NVDA" });
   });
+
+  it("requires confirmation before remembering or forgetting personal context", () => {
+    expect(deterministicProposal("Remember that my dentist is Dr. Smith")?.action).toEqual({
+      kind: "memory.remember",
+      text: "my dentist is Dr. Smith",
+    });
+    expect(deterministicProposal("Forget about my dentist")?.action).toEqual({
+      kind: "memory.forget",
+      query: "my dentist",
+    });
+  });
 });
 
