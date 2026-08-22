@@ -21,7 +21,10 @@ export async function POST(request: Request) {
   // whole route is budgeted to stay under the browser's classification timeout
   // rather than to give a slow provider or a slow model its full patience.
   const snapshot = await Promise.race([
-    gatherSnapshot(),
+    // The race covers a slow snapshot; the catch covers a broken one. Without
+    // it, a provider that throws rather than hangs takes the whole route down
+    // — and classification is meant to be an enhancement, never a gate.
+    gatherSnapshot().catch(() => null),
     new Promise<null>((resolve) => setTimeout(() => resolve(null), 5_000)),
   ]);
   const { baseUrl, model } = ollamaConfig();

@@ -37,7 +37,9 @@ export async function POST(request: Request) {
       latitude: Number.isFinite(latitude) ? latitude : HOME_LOCATION.latitude,
       longitude: Number.isFinite(longitude) ? longitude : HOME_LOCATION.longitude,
       place,
-    }),
+      // A provider that throws rather than hangs would otherwise escape the
+      // race below and fail the whole answer.
+    }).catch(() => null),
     new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
   ]);
   const { baseUrl, model } = ollamaConfig();
