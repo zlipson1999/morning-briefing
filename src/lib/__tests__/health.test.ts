@@ -53,6 +53,9 @@ function stubEverythingHealthy() {
     if (url.includes("osrm")) {
       return new Response(JSON.stringify({ routes: [{ duration: 600 }] }), { status: 200 });
     }
+    if (url.includes("/api/tags")) {
+      return new Response(JSON.stringify({ models: [{ name: "gemma4:e2b" }] }), { status: 200 });
+    }
     if (url.includes("finance.yahoo")) {
       return new Response(
         JSON.stringify({ chart: { result: [{ meta: { regularMarketPrice: 512.4 } }] } }),
@@ -137,6 +140,47 @@ describe("runHealthChecks", () => {
     const check = find(await runHealthChecks(), "Tasks");
     expect(check?.status).toBe("failing");
     expect(check?.detail).toMatch(/check the Zap/);
+  });
+
+  it("reports the configured chat model as ready when Ollama has pulled it", async () => {
+    stubEverythingHealthy();
+    const { runHealthChecks } = await load();
+    const check = find(await runHealthChecks(), "Ollama");
+
+    expect(check?.status).toBe("ok");
+    expect(check?.detail).toMatch(/gemma4:e2b ready/);
+  });
+
+  /**
+   * The quiet failure: Ollama is up, so the port answers, but the configured
+   * model was never pulled and every question would 404.
+   */
+  it("fails a running Ollama that has never pulled the configured model", async () => {
+    stubEverythingHealthy();
+    vi.stubEnv("OLLAMA_MODEL", "llama9:70b");
+
+    const { runHealthChecks } = await load();
+    const check = find(await runHealthChecks(), "Ollama");
+
+    expect(check?.status).toBe("failing");
+    expect(check?.detail).toMatch(/has not been pulled/);
+    expect(check?.detail).toMatch(/ollama pull llama9:70b/);
+  });
+
+  it("calls a missing Ollama off rather than failing — chat is optional", async () => {
+    stubEverythingHealthy();
+    // Nothing listening on the port: the connection is refused, not answered.
+    const answering = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL, init?: RequestInit) => {
+      if (String(input).includes("/api/tags")) throw new TypeError("fetch failed");
+      return answering(input, init);
+    }));
+
+    const { runHealthChecks } = await load();
+    const check = find(await runHealthChecks(), "Ollama");
+
+    expect(check?.status).toBe("off");
+    expect(check?.detail).toMatch(/setup:local-llm/);
   });
 
   it("fails Piper when the binary isn't where it was told", async () => {

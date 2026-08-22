@@ -13,6 +13,8 @@
     "dev:tailscale": "next dev -H 0.0.0.0",
     "start:tailscale": "next start -H 0.0.0.0",
     "serve:tailscale": "tailscale serve --bg 3000",
+    "setup:local-llm": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/setup-local-llm.ps1",
+    "setup:local-llm:unix": "bash scripts/setup-local-llm.sh",
     "startup:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows-startup.ps1",
     "startup:remove": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/remove-windows-startup.ps1"
   },
@@ -35,4 +37,3 @@
     "vitest": "^4.1.11"
   }
 }
-

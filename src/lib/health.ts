@@ -6,6 +6,7 @@ import { readStore } from "@/lib/calendar";
 import { readTaskStore } from "@/lib/tasks";
 import { readMailStore } from "@/lib/mail";
 import { configuredBackend } from "@/lib/tts";
+import { ollamaConfig } from "@/lib/ollama";
 import { claudeIsConfigured } from "@/lib/briefing/claude";
 import { credentials } from "@/lib/providers/etrade/client";
 import { ingestIsEnabled } from "@/lib/push/auth";
@@ -28,7 +29,7 @@ export type CheckStatus = "ok" | "failing" | "off";
 
 export type Check = {
   name: string;
-  group: "News" | "Weather" | "Commute" | "Money" | "Voice" | "Pushed in" | "Config";
+  group: "News" | "Weather" | "Commute" | "Money" | "Voice" | "Chat" | "Pushed in" | "Config";
   status: CheckStatus;
   detail: string;
   /** Round-trip time in ms, for the checks that make a request. */
@@ -154,6 +155,7 @@ export async function runHealthChecks(): Promise<Check[]> {
     checkGoogle(),
     checkStores(),
     checkVoice(),
+    checkChat(),
     checkConfig(),
   ]);
 
@@ -263,6 +265,57 @@ async function checkVoice(): Promise<Check[]> {
 
   return [
     off("Server voice", "Voice", "not configured — the browser's own engine will read the briefing"),
+  ];
+}
+
+/**
+ * Ollama is the one dependency this app cannot install for you, and the one
+ * whose absence is invisible until you open the chat and get an error. Two
+ * failures are worth telling apart: nothing listening at all (Ollama is not
+ * installed or not started) is a switch left off, while a running Ollama that
+ * has never pulled the configured model is broken configuration — chat will
+ * 404 on every question until someone pulls it.
+ */
+async function checkChat(): Promise<Check[]> {
+  const { baseUrl, model } = ollamaConfig();
+  const started = Date.now();
+
+  let installed: string[];
+  try {
+    const body = await (await expectOk(`${baseUrl}/api/tags`, {}, 4000)).json();
+    installed = ((body?.models ?? []) as { name?: string }[]).map((entry) => String(entry?.name ?? ""));
+  } catch {
+    return [
+      off(
+        "Ollama",
+        "Chat",
+        `nothing answering at ${baseUrl} — Ask Miles and confirmed actions stay unavailable; ` +
+          "`npm run setup:local-llm` installs it and pulls the model",
+      ),
+    ];
+  }
+
+  const ms = Date.now() - started;
+  const has = installed.some((name) => name === model || name === `${model}:latest`);
+  return [
+    has
+      ? {
+          name: "Ollama",
+          group: "Chat",
+          status: "ok",
+          detail: `${model} ready at ${baseUrl}`,
+          ms,
+        }
+      : {
+          name: "Ollama",
+          group: "Chat",
+          status: "failing",
+          detail:
+            `running, but ${model} has not been pulled` +
+            (installed.length ? ` (installed: ${installed.slice(0, 4).join(", ")})` : "") +
+            ` — run \`ollama pull ${model}\`, or set OLLAMA_MODEL to one you have`,
+          ms,
+        },
   ];
 }
 

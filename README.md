@@ -32,10 +32,32 @@ OLLAMA_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=gemma4:e2b
 ```
 
-Run `ollama run gemma4:e2b` once to install/start the model, restart Miles,
-then use **Ask Miles** in the lower-right corner. Requests go from the browser
-to Miles and from Miles to local Ollama, so the model port does not need to be
-exposed to the phone or tailnet.
+Ollama is a separate program and the model is a multi-gigabyte download, so
+neither arrives with `npm install`. One command sets both up on a new machine:
+
+```bat
+npm.cmd run setup:local-llm
+```
+
+```bash
+npm run setup:local-llm:unix   # macOS and Linux
+```
+
+It installs Ollama if it is missing (winget on Windows, Homebrew or the
+official installer elsewhere), starts the server, and pulls whichever model
+`OLLAMA_MODEL` names — reading `.env.local` first, so it always matches what
+Miles will ask for. Every step checks before it acts, so re-running it is
+harmless and a model already on disk is never pulled twice. If you prefer to do
+it by hand, `ollama run gemma4:e2b` is the equivalent.
+
+Then restart Miles and use **Ask Miles** in the lower-right corner. Requests go
+from the browser to Miles and from Miles to local Ollama, so the model port
+does not need to be exposed to the phone or tailnet.
+
+`/health` reports this under **Chat**: *off* when nothing answers the Ollama
+port, and *failing* when Ollama is running but the configured model was never
+pulled — the case that otherwise stays invisible until a question returns an
+error.
 
 Nothing needs configuring to start — news and weather work immediately with no
 API keys, and the portfolio panel runs on sample data until you connect
