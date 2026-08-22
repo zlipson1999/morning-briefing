@@ -65,7 +65,9 @@ export type BriefingSnapshot = {
   } | null;
   news: {
     local: { title: string; source: string }[];
-    global: { title: string; source: string }[];
+    florida: { title: string; source: string }[];
+    us: { title: string; source: string }[];
+    world: { title: string; source: string }[];
     /** True when the local list was ordered by importance rather than recency. */
     curatedLocal: boolean;
   };
@@ -173,10 +175,12 @@ export async function gatherSnapshot({
     getNews(place)
       .then(({ value }) => ({
         local: value.local.slice(0, 4).map(({ title, source }) => ({ title, source })),
-        global: value.global.slice(0, 4).map(({ title, source }) => ({ title, source })),
+        florida: value.florida.slice(0, 4).map(({ title, source }) => ({ title, source })),
+        us: value.us.slice(0, 4).map(({ title, source }) => ({ title, source })),
+        world: value.world.slice(0, 4).map(({ title, source }) => ({ title, source })),
         curatedLocal: value.curatedLocal,
       }))
-      .catch(() => ({ local: [], global: [], curatedLocal: false })),
+      .catch(() => ({ local: [], florida: [], us: [], world: [], curatedLocal: false })),
     nextCommute(events, nowMinutes, { latitude, longitude }).catch(() => null),
     getTodaysCalendar(tomorrowDate)
       .then((calendar) => {
