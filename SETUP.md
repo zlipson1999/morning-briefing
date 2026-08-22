@@ -118,6 +118,10 @@ say *"Hey Miles, goodnight"* whenever you want to hear it.
 - **E*TRADE** — real positions and cost basis instead of watchlist quotes.
   See the README; expect to reconnect each morning (their tokens expire
   nightly, not ours).
+- **Ask Miles chat** — private follow-up questions answered on your own PC.
+  Run `npm run setup:local-llm` (`npm run setup:local-llm:unix` on Mac or
+  Linux) once: it installs Ollama, starts it, and pulls the model. Nothing
+  else in Miles needs it, so skipping this only costs you the chat box.
 - **Piper voice** — one good voice on every device, no key, no cost:
   [github.com/rhasspy/piper](https://github.com/rhasspy/piper).
 - **Local news feeds** — `src/lib/feeds.ts` is preloaded for Palm Beach
