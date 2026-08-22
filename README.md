@@ -394,6 +394,20 @@ configured after the terminal command exits; Miles itself still needs to be
 running on the PC. This is Serve, not Funnel: it is available only inside your
 tailnet.
 
+### Start automatically with Windows
+
+After one successful production build, install the included per-user startup
+launcher:
+
+```bat
+npm.cmd run startup:install
+```
+
+It starts the production server in a hidden process at Windows sign-in, writes
+server output to `.data/miles-server.log`, and restores the private Tailscale
+Serve proxy when Tailscale is installed. It does not require administrator
+access. Remove it with `npm.cmd run startup:remove`.
+
 ```bash
 npm run dev:tailscale     # or: npm run start:tailscale, after a build
 ```
@@ -433,6 +447,11 @@ locally by Ollama and shown as a confirmation card. Nothing changes until you
 press **Confirm**. Calendar and task writes go directly to Google; dismissing
 mail only clears it from today's Miles view and never changes Gmail; watchlist
 changes persist in `.data/watchlist.json`.
+
+Miles can also keep private long-term facts. Say “Remember that my dentist is
+Dr. Smith” or “Forget about my dentist”; both operations use the same
+confirmation card. Memories stay on this PC in `.data/memory.json`, are capped
+at 100 short facts, and are supplied to local Ollama on later conversations.
 
 The lower-left **Enable alerts** control opts into browser notifications for
 urgent, newly published local headlines. Once a live E*TRADE session exists,
