@@ -52,7 +52,7 @@ export function composeTemplate(snapshot: BriefingSnapshot): string {
   const { userName, now, weather, schedule, inbox, tasks, portfolio, news, commute } = snapshot;
 
   lines.push(
-    `${now.hour < 12 ? "Good morning" : now.hour < 18 ? "Good afternoon" : "Good evening"}, ` +
+    `${now.hour < 5 ? "Good evening" : now.hour < 12 ? "Good morning" : now.hour < 18 ? "Good afternoon" : "Good evening"}, ` +
       `${userName}. It's ${now.weekday}, ${now.date}.`,
   );
 
@@ -167,3 +167,4 @@ export function composeTemplate(snapshot: BriefingSnapshot): string {
 
   return lines.join("\n\n");
 }
+

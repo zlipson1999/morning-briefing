@@ -8,6 +8,7 @@ import { ASSISTANT_NAME, ASSISTANT_TAGLINE } from "@/lib/config";
 import { useClock } from "@/lib/useClock";
 
 function greetingFor(hour: number) {
+  if (hour < 5) return "Good evening";
   if (hour < 12) return "Good morning";
   if (hour < 18) return "Good afternoon";
   return "Good evening";
@@ -65,3 +66,4 @@ export default function Header() {
     </header>
   );
 }
+
