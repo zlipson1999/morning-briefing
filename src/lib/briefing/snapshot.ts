@@ -1,5 +1,5 @@
 import { HOME_LOCATION, USER_NAME, WATCHLIST } from "@/lib/config";
-import { getTodaysEvents } from "@/lib/calendar";
+import { getTodaysCalendar, getTodaysEvents } from "@/lib/calendar";
 import { getInbox } from "@/lib/mail";
 import { getTasks } from "@/lib/tasks";
 import type { CalendarEvent } from "@/lib/data";
@@ -70,6 +70,10 @@ export type BriefingSnapshot = {
     curatedLocal: boolean;
   };
   commute: Commute | null;
+  /** Tomorrow's first real calendar event; null when only sample data exists or the fetch failed. */
+  tomorrow: {
+    firstEvent: { title: string; start: string; location: string } | null;
+  } | null;
 };
 
 /** Symbols the briefing is allowed to mention, from the watchlist config. */
@@ -143,9 +147,12 @@ export async function gatherSnapshot({
   // The calendar is read first: the commute depends on it, and everything
   // else can be fetched alongside.
   const events = await getTodaysEvents(now);
+  const tomorrowDate = new Date(now);
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  tomorrowDate.setHours(12, 0, 0, 0);
   const [inbox, taskList] = await Promise.all([getInbox(now), getTasks(now)]);
 
-  const [weather, portfolio, news, commute] = await Promise.all([
+  const [weather, portfolio, news, commute, tomorrow] = await Promise.all([
     getWeather(latitude, longitude, place)
       .then((result) => result.value)
       .catch(() => null),
@@ -171,6 +178,18 @@ export async function gatherSnapshot({
       }))
       .catch(() => ({ local: [], global: [], curatedLocal: false })),
     nextCommute(events, nowMinutes, { latitude, longitude }).catch(() => null),
+    getTodaysCalendar(tomorrowDate)
+      .then((calendar) => {
+        // Sample events describe the demo day, not the user's actual tomorrow.
+        if (calendar.source === "sample") return null;
+        const first = calendar.events[0];
+        return {
+          firstEvent: first
+            ? { title: first.title, start: spoken(first.start), location: first.location }
+            : null,
+        };
+      })
+      .catch(() => null),
   ]);
 
   const openTasks = taskList.items.filter((task) => !task.done);
@@ -231,5 +250,6 @@ export async function gatherSnapshot({
     portfolio,
     news,
     commute,
+    tomorrow,
   };
 }
