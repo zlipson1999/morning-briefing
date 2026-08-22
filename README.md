@@ -450,8 +450,10 @@ changes persist in `.data/watchlist.json`.
 
 Miles can also keep private long-term facts. Say “Remember that my dentist is
 Dr. Smith” or “Forget about my dentist”; both operations use the same
-confirmation card. Memories stay on this PC in `.data/memory.json`, are capped
-at 100 short facts, and are supplied to local Ollama on later conversations.
+confirmation card. Memories stay on this PC in `.data/memory.json` and are
+capped at 100 short facts. Later conversations get only the ones the question
+reaches for, plus the most recent to fill a small budget — a whole store of
+facts would crowd today's calendar and inbox out of a 4K context window.
 
 The lower-left **Enable alerts** control opts into browser notifications for
 urgent, newly published local headlines. Once a live E*TRADE session exists,
