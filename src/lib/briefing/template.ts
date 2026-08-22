@@ -75,6 +75,18 @@ export function composeTemplate(snapshot: BriefingSnapshot): string {
     );
   }
 
+  if (news.florida.length) {
+    lines.push(`Across Florida: ${news.florida[0].title}, from ${news.florida[0].source}.`);
+  }
+
+  if (news.us.length) {
+    lines.push(`Across the U.S.: ${news.us[0].title}, from ${news.us[0].source}.`);
+  }
+
+  if (news.world.length) {
+    lines.push(`Around the world: ${news.world[0].title}, from ${news.world[0].source}.`);
+  }
+
   // 2. Tasks.
   if (tasks.open) {
     const overdue = tasks.items.filter((task) => task.overdue);
@@ -152,13 +164,6 @@ export function composeTemplate(snapshot: BriefingSnapshot): string {
   // since a list of prices you don't hold isn't worth a sentence.
   const money = portfolioLine(portfolio);
   if (money) lines.push(money);
-
-  // 7. The wider world, last.
-  if (news.global.length) {
-    lines.push(
-      "Elsewhere: " + news.global.slice(0, 2).map((item) => item.title).join(". ") + ".",
-    );
-  }
 
   return lines.join("\n\n");
 }
