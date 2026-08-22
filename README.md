@@ -21,6 +21,22 @@ npm run dev
 
 Then open http://localhost:3000.
 
+### Local Ollama chat
+
+Miles includes private follow-up chat grounded in the same current snapshot as
+the spoken briefing. With Ollama running on the same PC, add this to
+`.env.local` (these are also the defaults):
+
+```dotenv
+OLLAMA_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=gemma4:e2b
+```
+
+Run `ollama run gemma4:e2b` once to install/start the model, restart Miles,
+then use **Ask Miles** in the lower-right corner. Requests go from the browser
+to Miles and from Miles to local Ollama, so the model port does not need to be
+exposed to the phone or tailnet.
+
 Nothing needs configuring to start — news and weather work immediately with no
 API keys, and the portfolio panel runs on sample data until you connect
 E*TRADE.
@@ -611,3 +627,4 @@ The suite covers the places bugs actually hide:
 for any origin other than `localhost`. Without it the page server-renders but
 never hydrates when you reach the dev server over `127.0.0.1`, a LAN IP or a
 forwarded port — the panels look right but nothing clicks.
+
