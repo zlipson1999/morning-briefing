@@ -110,7 +110,8 @@ good voice.
 Keep the PC on with `npm run start:tailscale` running. That's the whole
 routine — first open of the day gets the boot sequence and the full briefing,
 every open after that gets a short "what now" update that never repeats
-itself.
+itself, and the first open after 8pm gets the evening wind-down. You can also
+say *"Hey Miles, goodnight"* whenever you want to hear it.
 
 ## Optional extras
 
