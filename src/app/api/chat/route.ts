@@ -5,7 +5,7 @@ import {
   normalizeChatMessages,
   ollamaConfig,
 } from "@/lib/ollama";
-import { readMemories } from "@/lib/memory";
+import { readMemories, selectMemories } from "@/lib/memory";
 
 export const dynamic = "force-dynamic";
 
@@ -41,11 +41,17 @@ export async function POST(request: Request) {
     new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
   ]);
   const { baseUrl, model } = ollamaConfig();
-  const memories = await readMemories();
+  // Only the memories this question actually reaches for; the rest would just
+  // crowd out the snapshot in a small context window.
+  const asked = messages.filter((message) => message.role === "user").slice(-2).map((message) => message.content).join(" ");
+  const memories = selectMemories(await readMemories(), asked);
   const clientHour = Number(body.clientTime?.hour);
   const timeContext = Number.isInteger(clientHour) && clientHour >= 0 && clientHour <= 23
     ? `The user's local hour is ${clientHour}. If a greeting is appropriate, use exactly “${greetingForHour(clientHour)}”; do not substitute a different time-of-day greeting. Their time zone is ${String(body.clientTime?.timeZone ?? "unknown").slice(0, 100)}.`
     : "The user's exact local time is unavailable; avoid a time-of-day greeting.";
+  const memoryContext = memories.length
+    ? `Private memories, oldest first:\n${JSON.stringify(memories.map(({ text }) => text))}`
+    : "Private memories: none recorded.";
   const currentContext = snapshot
     ? {
         now: snapshot.now,
@@ -64,6 +70,9 @@ export async function POST(request: Request) {
         tomorrow: snapshot.tomorrow,
       }
     : null;
+  const snapshotContext = currentContext
+    ? `Current snapshot:\n${JSON.stringify(currentContext)}`
+    : "Current snapshot: temporarily unavailable.";
 
   let upstream: Response;
   try {
@@ -76,9 +85,7 @@ export async function POST(request: Request) {
         messages: [
           {
             role: "system",
-            content: currentContext
-              ? `${MILES_CHAT_SYSTEM}\n${timeContext}\n\nPrivate memories:\n${JSON.stringify(memories.map(({ text }) => text))}\n\nCurrent snapshot:\n${JSON.stringify(currentContext)}`
-              : `${MILES_CHAT_SYSTEM}\n${timeContext}\n\nPrivate memories:\n${JSON.stringify(memories.map(({ text }) => text))}\n\nCurrent snapshot: temporarily unavailable.`,
+            content: `${MILES_CHAT_SYSTEM}\n${timeContext}\n\n${memoryContext}\n\n${snapshotContext}`,
           },
           ...messages,
         ],
