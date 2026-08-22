@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearCache } from "@/lib/cache";
 import { mapGoogleEvent } from "@/lib/providers/google/calendar";
-import { mapGmailMessage } from "@/lib/providers/google/gmail";
+import { gmailSearch, mapGmailMessage } from "@/lib/providers/google/gmail";
 import { mapGoogleTask } from "@/lib/providers/google/tasks";
 
 const NOW = new Date(2026, 7, 21, 9, 0);
@@ -115,6 +115,20 @@ describe("mapGmailMessage", () => {
   });
 });
 
+describe("gmailSearch", () => {
+  it("includes important mail and the AI Inbox label by default", () => {
+    expect(gmailSearch()).toBe('is:unread newer_than:2d {is:important label:"AI Inbox"}');
+  });
+
+  it("allows the AI Inbox label or the entire search to be customized", () => {
+    vi.stubEnv("GMAIL_AI_INBOX_LABEL", "Inbox/AI Inbox");
+    expect(gmailSearch()).toContain('label:"Inbox/AI Inbox"');
+
+    vi.stubEnv("GMAIL_SEARCH", 'label:"Miles" newer_than:7d');
+    expect(gmailSearch()).toBe('label:"Miles" newer_than:7d');
+  });
+});
+
 describe("mapGoogleTask", () => {
   it("reads Google's fake-midnight due date as end of the local day", () => {
     const task = mapGoogleTask(
@@ -183,3 +197,4 @@ describe("the stored grant", () => {
     expect(await auth.readRefreshToken()).toBeNull();
   });
 });
+
