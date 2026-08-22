@@ -175,7 +175,7 @@ describe("composeNow", () => {
       }),
     );
 
-    expect(text).toContain("Priya Raghavan needs you: p99 again.");
+    expect(text).toContain("Priya sent an important update about p99 again.");
     expect(text).not.toContain("Old News");
     expect(text).not.toContain("GitHub");
   });
@@ -324,7 +324,8 @@ describe("composeNow, on a second look", () => {
       { since: lastLook },
     );
 
-    expect(text).toContain("Priya needs you");
+    expect(text).toContain("Priya sent an important update");
     expect(text).not.toContain("Marcus");
   });
 });
+
