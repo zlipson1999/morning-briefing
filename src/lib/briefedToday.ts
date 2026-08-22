@@ -70,7 +70,7 @@ export function automaticBriefingMode({
   morningPlayed: boolean;
   eveningPlayed: boolean;
 }): AutomaticBriefingMode {
-  if (hour >= 20 && !eveningPlayed) return "evening";
+  if (hour >= 20) return eveningPlayed ? "now" : "evening";
   return morningPlayed ? "now" : "morning";
 }
 
