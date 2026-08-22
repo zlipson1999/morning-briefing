@@ -47,7 +47,7 @@ function speechChunks(text: string): string[] {
 
 export default function ChatPanel() {
   const location = useLocation();
-  const { muted, toggleMute, stop: stopBriefing } = useVoice();
+  const { muted, toggleMute, stop: stopBriefing, wakeState, toggleWake } = useVoice();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -64,6 +64,8 @@ export default function ChatPanel() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const loadedRef = useRef(false);
   const recognitionRef = useRef<Recognition | null>(null);
+  const resumeWakeRef = useRef(false);
+  const recognitionTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-20))); } catch { /* private mode */ }
@@ -73,6 +75,7 @@ export default function ChatPanel() {
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
+      if (recognitionTimerRef.current !== null) window.clearTimeout(recognitionTimerRef.current);
       recognitionRef.current?.abort();
       window.speechSynthesis?.cancel();
     };
@@ -171,18 +174,36 @@ export default function ChatPanel() {
 
   function listen() {
     if (listening || loading) {
+      if (recognitionTimerRef.current !== null) {
+        window.clearTimeout(recognitionTimerRef.current);
+        recognitionTimerRef.current = null;
+      }
       recognitionRef.current?.abort();
+      setListening(false);
+      if (resumeWakeRef.current) {
+        resumeWakeRef.current = false;
+        toggleWake();
+      }
       return;
     }
     const RecognitionClass = recognitionClass();
     if (!RecognitionClass) return;
     stopSpeaking();
+    // Chrome/Edge only permit one recognition session at a time. Pause the
+    // continuous Hey Miles listener while this one-shot chat question runs.
+    resumeWakeRef.current = wakeState === "listening";
+    if (resumeWakeRef.current) toggleWake();
     const recognition = new RecognitionClass();
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = "en-US";
     recognitionRef.current = recognition;
     let finalTranscript = "";
+    const restoreWakeWord = () => {
+      if (!resumeWakeRef.current) return;
+      resumeWakeRef.current = false;
+      toggleWake();
+    };
     recognition.onresult = (event) => {
       let transcript = "";
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
@@ -192,22 +213,50 @@ export default function ChatPanel() {
       setInput((finalTranscript || transcript).trim());
     };
     recognition.onerror = (event) => {
-      if (event.error !== "aborted" && event.error !== "no-speech") setError(`Microphone: ${event.error}.`);
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        setError("Microphone access is blocked. Allow it in the address bar, then try again.");
+      } else if (event.error === "audio-capture") {
+        setError("No microphone is available to the browser.");
+      } else if (event.error === "network") {
+        setError("Chrome or Edge couldn't reach its speech-recognition service.");
+      } else if (event.error !== "aborted" && event.error !== "no-speech") {
+        setError(`Microphone: ${event.error}.`);
+      }
       setListening(false);
     };
     recognition.onend = () => {
+      recognitionTimerRef.current = null;
       setListening(false);
       recognitionRef.current = null;
+      restoreWakeWord();
       if (finalTranscript.trim()) void ask(finalTranscript);
     };
     setError(null);
     setListening(true);
-    recognition.start();
+    recognitionTimerRef.current = window.setTimeout(() => {
+      recognitionTimerRef.current = null;
+      try {
+        recognition.start();
+      } catch {
+        recognitionRef.current = null;
+        setListening(false);
+        setError("The microphone couldn't start. Check browser microphone permission and try again.");
+        restoreWakeWord();
+      }
+    }, resumeWakeRef.current ? 250 : 0);
   }
 
   function clear() {
     abortRef.current?.abort();
+    if (recognitionTimerRef.current !== null) {
+      window.clearTimeout(recognitionTimerRef.current);
+      recognitionTimerRef.current = null;
+    }
     recognitionRef.current?.abort();
+    if (resumeWakeRef.current) {
+      resumeWakeRef.current = false;
+      toggleWake();
+    }
     stopSpeaking();
     setMessages([]);
     setError(null);
