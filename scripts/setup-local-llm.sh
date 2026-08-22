@@ -30,7 +30,15 @@ if ! command -v ollama >/dev/null 2>&1; then
     brew install ollama
   elif [ "$(uname -s)" = "Linux" ]; then
     echo "Installing Ollama..."
-    curl -fsSL https://ollama.com/install.sh | sh
+    # The installer sets up a systemd service, which does not exist in a
+    # container (a phone's proot, docker, WSL without systemd). It exits
+    # non-zero on that step having already installed the binary, so judge the
+    # result by whether the binary is there rather than by the exit code.
+    curl -fsSL https://ollama.com/install.sh | sh || true
+    if ! command -v ollama >/dev/null 2>&1; then
+      echo "Ollama did not install. See https://ollama.com/download" >&2
+      exit 1
+    fi
   else
     echo "Ollama is not installed. Get it from https://ollama.com/download and re-run this script." >&2
     exit 1
