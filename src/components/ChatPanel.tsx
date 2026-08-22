@@ -2,7 +2,9 @@
 
 import { FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useLocation } from "@/hooks/useLocation";
+import { useDailySet } from "@/hooks/useDailySet";
 import type { ChatMessage } from "@/lib/ollama";
+import { mightRequestAction, type ActionProposal } from "@/lib/actions";
 import { useVoice } from "@/components/VoiceProvider";
 
 const STORAGE_KEY = "mb:chat";
@@ -48,6 +50,7 @@ function speechChunks(text: string): string[] {
 
 export default function ChatPanel() {
   const location = useLocation();
+  const handledEmail = useDailySet("email-handled");
   const { muted, toggleMute, stop: stopBriefing, wakeState, toggleWake } = useVoice();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -61,6 +64,8 @@ export default function ChatPanel() {
     () => false,
   );
   const [error, setError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ proposal: ActionProposal; confirmation: string } | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const loadedRef = useRef(false);
@@ -109,6 +114,28 @@ export default function ChatPanel() {
   async function ask(rawQuestion: string) {
     const question = rawQuestion.trim();
     if (!question || loading) return;
+
+    if (mightRequestAction(question)) {
+      setActionBusy(true);
+      setError(null);
+      try {
+        const proposed = await fetch("/api/actions/propose", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question, localTime: new Date().toString() }),
+        });
+        const result = await proposed.json().catch(() => null);
+        if (result?.proposal && typeof result?.confirmation === "string") {
+          setPendingAction({ proposal: result.proposal, confirmation: result.confirmation });
+          setInput("");
+          setActionBusy(false);
+          return;
+        }
+      } catch {
+        // Classification is an enhancement. Ordinary chat still works.
+      }
+      setActionBusy(false);
+    }
 
     const next = [...messages, { role: "user" as const, content: question }].slice(-20);
     setMessages([...next, { role: "assistant", content: "" }]);
@@ -165,6 +192,32 @@ export default function ChatPanel() {
     } finally {
       abortRef.current = null;
       setLoading(false);
+    }
+  }
+
+  async function confirmAction() {
+    if (!pendingAction || actionBusy) return;
+    setActionBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/actions/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: pendingAction.confirmation }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error?.message ?? "The action failed.");
+      if (result?.clientAction?.kind === "email.dismiss" && !handledEmail.has(result.clientAction.id)) {
+        handledEmail.toggle(result.clientAction.id);
+      }
+      const completed = pendingAction.proposal.summary;
+      setPendingAction(null);
+      setMessages((current) => [...current, { role: "assistant" as const, content: `Done — ${completed}` }].slice(-20));
+      speakAnswer(`Done. ${completed}`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The action failed.");
+    } finally {
+      setActionBusy(false);
     }
   }
 
@@ -343,6 +396,20 @@ export default function ChatPanel() {
               </div>
             ))}
             {error && <p className="rounded-lg border border-mail/30 bg-mail/10 px-3 py-2 text-xs text-mail">{error}</p>}
+            {pendingAction && (
+              <div className="rounded-xl border border-task/40 bg-task/10 p-3 text-sm text-mist-100">
+                <p className="text-[10px] font-semibold tracking-wider text-task uppercase">Confirm action</p>
+                <p className="mt-1.5 leading-relaxed">{pendingAction.proposal.summary}</p>
+                <div className="mt-3 flex gap-2">
+                  <button type="button" onClick={() => void confirmAction()} disabled={actionBusy} className="rounded-lg bg-task px-3 py-2 text-xs font-bold text-ink-950 disabled:opacity-50">
+                    {actionBusy ? "Working…" : "Confirm"}
+                  </button>
+                  <button type="button" onClick={() => setPendingAction(null)} disabled={actionBusy} className="rounded-lg border border-ink-600 px-3 py-2 text-xs text-mist-300">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
             <div ref={bottomRef} />
           </div>
 
@@ -379,8 +446,8 @@ export default function ChatPanel() {
                   Stop
                 </button>
               ) : (
-                <button type="submit" disabled={!input.trim()} className="rounded-xl bg-[#5cc8de] px-3 py-3 text-xs font-bold text-ink-950 disabled:opacity-40">
-                  Send
+                <button type="submit" disabled={!input.trim() || actionBusy} className="rounded-xl bg-[#5cc8de] px-3 py-3 text-xs font-bold text-ink-950 disabled:opacity-40">
+                  {actionBusy ? "Checking…" : "Send"}
                 </button>
               )}
             </div>
