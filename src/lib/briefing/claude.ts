@@ -80,7 +80,25 @@ lists. Second person, present tense. Numbers as a person would say them: "percen
 "degrees", "dollars". Never invent a fact; if something is absent from the data it does not
 exist. Never mention the data, the panels, the app, or your own reasoning.`;
 
-export type BriefingMode = "morning" | "now";
+const EVENING_SYSTEM = `You are Miles, one person's briefing assistant. They just asked for the
+evening wind-down — "goodnight", or the first time they've opened this today past 8pm.
+
+This looks backward over the day, not forward: how much got done, and one thing about
+tomorrow. It is not the morning briefing and does not repeat it — no weather, no news, no
+run-through of today's meetings.
+
+Say, in this order, whatever of it is genuinely present in the data:
+1. How today's tasks went — how many got done, out of how many. If nothing got done, say so
+   plainly rather than dwelling on it; tomorrow is a fresh start, not a scolding.
+2. Where the portfolio or watchlist closed, if it's connected and moved.
+3. What tomorrow opens with — the first thing on the calendar, or that nothing's there yet.
+
+Leave out anything the data doesn't have — don't pad with a fact-free sentence just to fill
+a slot. Two to four sentences, 40 to 90 words. Plain spoken prose, second person, present
+tense. Numbers as a person would say them: "percent", "degrees", "dollars". Never invent a
+fact. A brief "good evening" is fine to open with; nothing more.`;
+
+export type BriefingMode = "morning" | "now" | "evening";
 
 /** Regenerating word-for-word identical prose every 60s is pure waste. */
 function cacheKey(snapshot: BriefingSnapshot, mode: BriefingMode): string {
@@ -93,11 +111,13 @@ function cacheKey(snapshot: BriefingSnapshot, mode: BriefingMode): string {
     schedule: snapshot.schedule.remaining,
     weather: snapshot.weather?.tempF,
     condition: snapshot.weather?.condition,
-    tasks: snapshot.tasks.open,
+    tasksOpen: snapshot.tasks.open,
+    tasksDone: snapshot.tasks.done,
     unread: snapshot.inbox.unread,
     portfolio: snapshot.portfolio?.dayChangePct?.toFixed(1),
     headline: snapshot.news.global[0]?.title,
     leaveIn: snapshot.commute?.leaveInMinutes,
+    tomorrow: snapshot.tomorrow?.firstEvent?.title,
   };
   return `briefing:${JSON.stringify(salient)}`;
 }
@@ -123,7 +143,7 @@ export async function composeWithClaude(
       const response = await client.messages.create({
         model: MODEL,
         max_tokens: 1024,
-        system: mode === "now" ? NOW_SYSTEM : MORNING_SYSTEM,
+        system: mode === "now" ? NOW_SYSTEM : mode === "evening" ? EVENING_SYSTEM : MORNING_SYSTEM,
         // A short synthesis over a small payload: medium effort is the right
         // trade against a briefing that has to be spoken within seconds.
         output_config: { effort: "medium" },
@@ -135,8 +155,11 @@ export async function composeWithClaude(
                 ? `It is ${snapshot.now.time}. ${snapshot.userName} already heard the full ` +
                   `briefing this morning and has just reopened the dashboard. Write the update.` +
                   `\n\n${facts}\n\nFull context:\n${JSON.stringify(snapshot, null, 2)}`
-                : `Here is everything known about ${snapshot.userName}'s day. ` +
-                  `Write the briefing.\n\n${JSON.stringify(snapshot, null, 2)}`,
+                : mode === "evening"
+                  ? `${snapshot.userName} asked for the evening wind-down. Write it.\n\n` +
+                    JSON.stringify(snapshot, null, 2)
+                  : `Here is everything known about ${snapshot.userName}'s day. ` +
+                    `Write the briefing.\n\n${JSON.stringify(snapshot, null, 2)}`,
           },
         ],
       });
