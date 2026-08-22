@@ -32,7 +32,7 @@ E*TRADE.
 | **Today's schedule** | **live-wired** | Real Google Calendar over a Zapier push; a sample day until one arrives. Finished events dim and strike through, the current one is tagged `NOW` and the next `NEXT` |
 | **Waiting on you** | **live-wired** | Filtered mail over a Zapier push; sample data until one arrives. Clear an item to drop it from today's list |
 | **Task list** | **live-wired** | Todoist, Google Tasks or Things over a Zapier push; sample data until one arrives. Overdue first, then by due date |
-| **Today's news** | **live** | Local and world headlines over curated RSS, with the local list ranked by what matters rather than what's newest. Every item carries its source and age |
+| **Today's news** | **live** | Local, Florida, U.S. and world headlines over curated RSS, with the local list ranked by what matters rather than what's newest. Every item carries its source and age |
 | **Weather** | **live** | Open-Meteo, in the header beside the date — click it for the full forecast |
 | **Portfolio** | **live** | Keyless Yahoo quotes on the watchlist in config; real E*TRADE positions and cost basis once connected |
 | **Leave by** | **live** | Drive time to the next event with a real address, counted back to a walk-out-the-door time |
