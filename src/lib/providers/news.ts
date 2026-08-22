@@ -1,6 +1,13 @@
 import { XMLParser } from "fast-xml-parser";
 import { cached, fetchWithTimeout } from "@/lib/cache";
-import { GLOBAL_FEEDS, googleNewsFeedFor, localFeedsFor, type Feed } from "@/lib/feeds";
+import {
+  FLORIDA_FEEDS,
+  US_FEEDS,
+  WORLD_FEEDS,
+  googleNewsFeedFor,
+  localFeedsFor,
+  type Feed,
+} from "@/lib/feeds";
 import { rankByImportance } from "./news-rank";
 
 export type Headline = {
@@ -14,7 +21,9 @@ export type Headline = {
 
 export type NewsBundle = {
   local: Headline[];
-  global: Headline[];
+  florida: Headline[];
+  us: Headline[];
+  world: Headline[];
   place: string;
   /**
    * True when the local list was ordered by importance rather than by
@@ -153,9 +162,11 @@ export async function getNews(place: string): Promise<{
       return items;
     };
 
-    const [curated, global] = await Promise.all([
+    const [curated, florida, us, world] = await Promise.all([
       settle(localFeedsFor(place)),
-      settle(GLOBAL_FEEDS),
+      settle(FLORIDA_FEEDS),
+      settle(US_FEEDS),
+      settle(WORLD_FEEDS),
     ]);
 
     // A curated newsroom that changed its feed URL used to mean an empty
@@ -163,7 +174,7 @@ export async function getNews(place: string): Promise<{
     // staler, but local news beats no local news.
     const local = curated.length > 0 ? curated : await settle([googleNewsFeedFor(place)]);
 
-    if (local.length === 0 && global.length === 0) {
+    if (local.length === 0 && florida.length === 0 && us.length === 0 && world.length === 0) {
       throw new Error("Every news source failed");
     }
 
@@ -174,7 +185,9 @@ export async function getNews(place: string): Promise<{
 
     return {
       local: ranked.headlines,
-      global: rank(global, 8),
+      florida: rank(florida, 6),
+      us: rank(us, 6),
+      world: rank(world, 6),
       place,
       curatedLocal: ranked.curated,
     } satisfies NewsBundle;
