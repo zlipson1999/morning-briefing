@@ -7,6 +7,7 @@ import TaskPanel from "@/components/TaskPanel";
 import NewsPanel from "@/components/NewsPanel";
 import PortfolioPanel from "@/components/PortfolioPanel";
 import ChatPanel from "@/components/ChatPanel";
+import AlertManager from "@/components/AlertManager";
 
 export default function Home() {
   return (
@@ -40,6 +41,7 @@ export default function Home() {
         </Link>
       </footer>
       <ChatPanel />
+      <AlertManager />
     </main>
   );
 }

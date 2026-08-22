@@ -1,7 +1,7 @@
 import { cached } from "@/lib/cache";
 import { addressFrom, kindFrom } from "@/lib/calendar/normalize";
 import type { CalendarEvent } from "@/lib/data";
-import { googleGet, googleIsConnected } from "./auth";
+import { googleGet, googleIsConnected, googleRequest } from "./auth";
 
 /**
  * Today's events, straight from the Google Calendar API.
@@ -80,3 +80,27 @@ export async function googleCalendarToday(now: Date): Promise<CalendarEvent[] | 
   );
   return value;
 }
+
+export async function createGoogleCalendarEvent(input: {
+  title: string;
+  start: string;
+  end: string;
+  location?: string;
+}) {
+  const start = new Date(input.start);
+  const end = new Date(input.end);
+  if (!input.title.trim() || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    throw new Error("The event needs a title and valid start/end times.");
+  }
+  return googleRequest(
+    "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+    "POST",
+    {
+      summary: input.title.trim().slice(0, 200),
+      location: input.location?.trim().slice(0, 300) || undefined,
+      start: { dateTime: start.toISOString() },
+      end: { dateTime: end.toISOString() },
+    },
+  );
+}
+

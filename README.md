@@ -178,9 +178,10 @@ One-time setup, about five minutes, no cost:
    consent once, and the calendar, mail and task panels (and the briefing,
    and leave-by) run on your real data.
 
-All three scopes are read-only: Miles can see your day, and cannot send mail,
-edit events or complete tasks, because it never asked to be able to. The only
-thing kept is the refresh token, sealed with AES-256-GCM under
+Gmail stays read-only. Calendar events and Google Tasks are writable so action
+mode can create events and add or complete tasks, but every write is held behind
+a visible confirmation card. Existing Google connections must disconnect and
+reconnect once to grant those expanded scopes. The only thing kept is the refresh token, sealed with AES-256-GCM under
 `SESSION_SECRET`, on your disk. Disconnect with
 `curl -X POST localhost:3000/api/google/disconnect`, and revoke Google's half
 at [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
@@ -380,6 +381,19 @@ than deployed: one person, no public URL, and therefore no auth to build,
 no login to get wrong, and no endpoint on the open internet serving your
 inbox.
 
+For the best phone microphone support, use Tailscale Serve's private HTTPS
+address. With Miles already running on port 3000, run this once:
+
+```bash
+npm run serve:tailscale
+```
+
+Tailscale prints an `https://<machine>.<tailnet>.ts.net` address. Open that on
+the phone and add it to the home screen. `--bg` keeps the private proxy
+configured after the terminal command exits; Miles itself still needs to be
+running on the PC. This is Serve, not Funnel: it is available only inside your
+tailnet.
+
 ```bash
 npm run dev:tailscale     # or: npm run start:tailscale, after a build
 ```
@@ -410,6 +424,22 @@ iPhone specifics, honestly: Safari ships no speech recognition, so the
 start it with a tap. And Safari's built-in voices are the worst of any
 platform, which is exactly what the server voice exists for: configure Piper
 or ElevenLabs on the PC and the phone plays that audio instead.
+
+## Confirmed actions
+
+Ask Miles to schedule an event, add or complete a task, dismiss an inbox item,
+or add/remove a ticker from the watchlist. An action-shaped request is parsed
+locally by Ollama and shown as a confirmation card. Nothing changes until you
+press **Confirm**. Calendar and task writes go directly to Google; dismissing
+mail only clears it from today's Miles view and never changes Gmail; watchlist
+changes persist in `.data/watchlist.json`.
+
+The lower-left **Enable alerts** control opts into browser notifications for
+urgent, newly published local headlines. Once a live E*TRADE session exists,
+it also reports individual positions moving at least five percent. Alerts are
+checked every five minutes while Miles is open or installed; this private,
+serverless version cannot wake a phone after the operating system fully
+suspends the app.
 
 ## "Hey Miles"
 
