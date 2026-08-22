@@ -1,6 +1,7 @@
 import { HOME_LOCATION } from "@/lib/config";
 import { composeWithClaude, type BriefingMode } from "@/lib/briefing/claude";
-import { composeNow, nowKeys } from "@/lib/briefing/now";
+import { composeEvening } from "@/lib/briefing/evening";
+import { composeNow } from "@/lib/briefing/now";
 import { gatherSnapshot } from "@/lib/briefing/snapshot";
 import { composeTemplate } from "@/lib/briefing/template";
 import { configuredBackend, speakBriefing } from "@/lib/tts";
@@ -15,6 +16,8 @@ export const dynamic = "force-dynamic";
  * with nothing set up at all.
  *
  *   curl -s localhost:3000/api/briefing/audio -o brief.wav
+ *
+ * Same three modes as /api/briefing — see that route for what each means.
  */
 export async function GET(request: Request) {
   if (configuredBackend() === "none") {
@@ -28,16 +31,16 @@ export async function GET(request: Request) {
   const latitude = Number(params.get("lat") ?? HOME_LOCATION.latitude);
   const longitude = Number(params.get("lon") ?? HOME_LOCATION.longitude);
 
+  const rawMode = params.get("mode");
+  const mode: BriefingMode = rawMode === "now" ? "now" : rawMode === "evening" ? "evening" : "morning";
+
   const snapshot = await gatherSnapshot({
     latitude: Number.isFinite(latitude) ? latitude : HOME_LOCATION.latitude,
     longitude: Number.isFinite(longitude) ? longitude : HOME_LOCATION.longitude,
     place: params.get("place") ?? HOME_LOCATION.label,
+    includeTomorrow: mode === "evening",
   });
 
-  const mode: BriefingMode = params.get("mode") === "now" ? "now" : "morning";
-
-  // What the caller was told last time, so an update can skip what hasn't
-  // changed rather than repeating itself twenty minutes later.
   const since = Number(params.get("since"));
   const context =
     mode === "now"
@@ -50,9 +53,20 @@ export async function GET(request: Request) {
   const written =
     params.get("author") === "template" ? null : await composeWithClaude(snapshot, mode, context);
 
-  const deterministic = mode === "now" ? composeNow(snapshot, context) : null;
-  const text = written ?? deterministic?.text ?? composeTemplate(snapshot);
-  const keys = mode === "now" ? (deterministic?.keys ?? nowKeys(snapshot, context)) : [];
+  let text: string;
+  let keys: string[] = [];
+
+  if (written) {
+    text = written;
+  } else if (mode === "now") {
+    const deterministic = composeNow(snapshot, context);
+    text = deterministic.text;
+    keys = deterministic.keys;
+  } else if (mode === "evening") {
+    text = composeEvening(snapshot);
+  } else {
+    text = composeTemplate(snapshot);
+  }
 
   const spoken = await speakBriefing(text);
   if (!spoken) {
@@ -71,7 +85,6 @@ export async function GET(request: Request) {
       "Cache-Control": "no-store",
       "X-Briefing-Author": written ? "claude" : "template",
       "X-Briefing-Mode": mode,
-      // Feed these back as ?said= on the next update.
       ...(keys.length ? { "X-Briefing-Keys": keys.join(",") } : {}),
       "X-Briefing-Voice": spoken.backend,
     },

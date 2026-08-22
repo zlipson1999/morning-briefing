@@ -18,7 +18,7 @@ import type { BriefingSnapshot } from "./snapshot";
 /** Inside this many minutes, leaving is the most important thing you can hear. */
 const URGENT_LEAVE_MINUTES = 45;
 
-function portfolioLine(portfolio: BriefingSnapshot["portfolio"]): string | null {
+export function portfolioLine(portfolio: BriefingSnapshot["portfolio"]): string | null {
   if (!portfolio || portfolio.mode === "mock") return null;
 
   if (portfolio.totalValue > 0) {

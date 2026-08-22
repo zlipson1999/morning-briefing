@@ -1,6 +1,7 @@
 import { HOME_LOCATION } from "@/lib/config";
 import { claudeIsConfigured, composeWithClaude, type BriefingMode } from "@/lib/briefing/claude";
-import { composeNow, nowKeys } from "@/lib/briefing/now";
+import { composeEvening } from "@/lib/briefing/evening";
+import { composeNow } from "@/lib/briefing/now";
 import { gatherSnapshot } from "@/lib/briefing/snapshot";
 import { composeTemplate } from "@/lib/briefing/template";
 
@@ -20,10 +21,11 @@ export const dynamic = "force-dynamic";
  * composer answers instead, so the endpoint has no failure mode where you get
  * nothing. `X-Briefing-Author` says which one you got.
  *
- * `?mode=now` returns the short update the app plays on every open after the
- * first one today: the time, what's running or next, and only the mail and
- * tasks close enough to the clock to matter. The morning briefing already
- * covered the day, so this one doesn't.
+ * Three modes, via `?mode=`:
+ * - `morning` (default): the full day, once.
+ * - `now`: the short update every open after that — the time, what's running
+ *   or next, and only the mail and tasks close enough to the clock to matter.
+ * - `evening`: the wind-down — how today went, and what tomorrow opens with.
  *
  * `?format=json` returns the underlying snapshot instead of prose, for
  * anything that would rather render the data than hear it.
@@ -35,19 +37,23 @@ export async function GET(request: Request) {
   const longitude = Number(params.get("lon") ?? HOME_LOCATION.longitude);
   const place = params.get("place") ?? HOME_LOCATION.label;
 
+  const rawMode = params.get("mode");
+  const mode: BriefingMode = rawMode === "now" ? "now" : rawMode === "evening" ? "evening" : "morning";
+
   const snapshot = await gatherSnapshot({
     latitude: Number.isFinite(latitude) ? latitude : HOME_LOCATION.latitude,
     longitude: Number.isFinite(longitude) ? longitude : HOME_LOCATION.longitude,
     place,
+    // Only the evening wind-down needs tomorrow's calendar — no reason to
+    // pay for that fetch on every morning or now-brief request.
+    includeTomorrow: mode === "evening",
   });
 
   if (params.get("format") === "json") {
     return Response.json(snapshot, { headers: { "Cache-Control": "no-store" } });
   }
 
-  const mode: BriefingMode = params.get("mode") === "now" ? "now" : "morning";
-
-  // What the caller was told last time, so an update can skip what hasn't
+  // What the caller was told last time, so a now-brief can skip what hasn't
   // changed rather than repeating itself twenty minutes later.
   const since = Number(params.get("since"));
   const context =
@@ -61,9 +67,20 @@ export async function GET(request: Request) {
   const written =
     params.get("author") === "template" ? null : await composeWithClaude(snapshot, mode, context);
 
-  const deterministic = mode === "now" ? composeNow(snapshot, context) : null;
-  const text = written ?? deterministic?.text ?? composeTemplate(snapshot);
-  const keys = mode === "now" ? (deterministic?.keys ?? nowKeys(snapshot, context)) : [];
+  let text: string;
+  let keys: string[] = [];
+
+  if (written) {
+    text = written;
+  } else if (mode === "now") {
+    const deterministic = composeNow(snapshot, context);
+    text = deterministic.text;
+    keys = deterministic.keys;
+  } else if (mode === "evening") {
+    text = composeEvening(snapshot);
+  } else {
+    text = composeTemplate(snapshot);
+  }
 
   return new Response(text, {
     headers: {

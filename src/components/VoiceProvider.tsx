@@ -13,6 +13,10 @@ type VoiceContextValue = {
   voiceSource: VoiceSource;
   muted: boolean;
   speak: (options?: { force?: boolean; mode?: SpeakMode }) => void;
+  /** "Hey Miles, <question>" — answered from today's data, spoken back. */
+  ask: (question: string) => void;
+  /** "Hey Miles, week ahead" — a glance at the coming week. */
+  weekAhead: () => void;
   stop: () => void;
   toggleMute: () => void;
   /** "Hey Miles" — hands-free activation while the tab is open. */
@@ -42,7 +46,7 @@ export function useVoice(): VoiceContextValue {
  * is still up — that screen is where we can ask for the tap.
  */
 export default function VoiceProvider({ children }: { children: ReactNode }) {
-  const { state, voiceSource, muted, speak, stop, toggleMute } = useBriefingVoice();
+  const { state, voiceSource, muted, speak, ask, weekAhead, stop, toggleMute } = useBriefingVoice();
 
   const briefedToday = useBriefedToday();
   const [skipped, setSkipped] = useState(false);
@@ -65,18 +69,26 @@ export default function VoiceProvider({ children }: { children: ReactNode }) {
         case "unmute":
           if (muted) toggleMute();
           break;
+        case "ask":
+          ask(intent.question);
+          break;
+        case "week":
+          weekAhead();
+          break;
         case "speak":
           // Force past mute and past the once-per-load guard: being asked out
-          // loud is the clearest possible user gesture. Asking for "what now"
-          // before the morning has ever played gets the morning instead.
+          // loud is the clearest possible user gesture. Asking for anything
+          // but the full briefing before the morning has ever played gets
+          // the morning instead — you can't wind down a day that never
+          // started, or get "what's next" before hearing what today is.
           speak({
             force: true,
-            mode: intent.mode === "now" && !briefedToday ? "morning" : intent.mode,
+            mode: intent.mode !== "morning" && !briefedToday ? "morning" : intent.mode,
           });
           break;
       }
     },
-    [speak, stop, muted, toggleMute, briefedToday],
+    [speak, ask, weekAhead, stop, muted, toggleMute, briefedToday],
   );
 
   // Paused while the app itself talks, so it can't hear its own voice say
@@ -87,8 +99,8 @@ export default function VoiceProvider({ children }: { children: ReactNode }) {
   });
 
   const value = useMemo(
-    () => ({ state, voiceSource, muted, speak, stop, toggleMute, wakeState, toggleWake }),
-    [state, voiceSource, muted, speak, stop, toggleMute, wakeState, toggleWake],
+    () => ({ state, voiceSource, muted, speak, ask, weekAhead, stop, toggleMute, wakeState, toggleWake }),
+    [state, voiceSource, muted, speak, ask, weekAhead, stop, toggleMute, wakeState, toggleWake],
   );
 
   return (

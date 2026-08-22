@@ -39,10 +39,12 @@ describe("matchWakeWord", () => {
 });
 
 describe("interpretWakeCommand", () => {
-  it("defaults to the short update", () => {
+  /** Only a bare "Hey Miles" — nothing after the name — means the update. */
+  it("gives the short update only for a bare greeting or a literal ask for one", () => {
     expect(interpretWakeCommand("")).toEqual({ kind: "speak", mode: "now" });
-    expect(interpretWakeCommand("what's next")).toEqual({ kind: "speak", mode: "now" });
     expect(interpretWakeCommand("update me")).toEqual({ kind: "speak", mode: "now" });
+    expect(interpretWakeCommand("what's up")).toEqual({ kind: "speak", mode: "now" });
+    expect(interpretWakeCommand("status")).toEqual({ kind: "speak", mode: "now" });
   });
 
   it("recognises a request for the whole thing", () => {
@@ -52,6 +54,19 @@ describe("interpretWakeCommand", () => {
       mode: "morning",
     });
     expect(interpretWakeCommand("start over")).toEqual({ kind: "speak", mode: "morning" });
+  });
+
+  it("recognises goodnight as the evening wind-down", () => {
+    expect(interpretWakeCommand("goodnight")).toEqual({ kind: "speak", mode: "evening" });
+    expect(interpretWakeCommand("good night miles")).toEqual({ kind: "speak", mode: "evening" });
+    expect(interpretWakeCommand("how did today go")).toEqual({ kind: "speak", mode: "evening" });
+    expect(interpretWakeCommand("wrap up the day")).toEqual({ kind: "speak", mode: "evening" });
+  });
+
+  it("recognises a request for the week ahead", () => {
+    expect(interpretWakeCommand("week ahead")).toEqual({ kind: "week" });
+    expect(interpretWakeCommand("what's my week look like")).toEqual({ kind: "week" });
+    expect(interpretWakeCommand("this week")).toEqual({ kind: "week" });
   });
 
   it("stops on being told to", () => {
@@ -64,5 +79,28 @@ describe("interpretWakeCommand", () => {
     expect(interpretWakeCommand("mute")).toEqual({ kind: "mute" });
     expect(interpretWakeCommand("unmute")).toEqual({ kind: "unmute" });
     expect(interpretWakeCommand("voice off")).toEqual({ kind: "mute" });
+  });
+
+  /**
+   * The core of "ask Miles anything": anything with real content that isn't
+   * one of the recognised intents becomes a question, not a shrug into "now".
+   */
+  it("treats any other real content as a question", () => {
+    expect(interpretWakeCommand("what's next")).toEqual({ kind: "ask", question: "what's next" });
+    expect(interpretWakeCommand("how's NVDA doing")).toEqual({
+      kind: "ask",
+      question: "how's NVDA doing",
+    });
+    expect(interpretWakeCommand("when's my next meeting with Sofia")).toEqual({
+      kind: "ask",
+      question: "when's my next meeting with Sofia",
+    });
+  });
+
+  it("preserves the original casing and punctuation of a question", () => {
+    expect(interpretWakeCommand("How's NVDA Doing?")).toEqual({
+      kind: "ask",
+      question: "How's NVDA Doing?",
+    });
   });
 });

@@ -70,6 +70,14 @@ export type BriefingSnapshot = {
     curatedLocal: boolean;
   };
   commute: Commute | null;
+  /**
+   * Tomorrow's first event, for the evening wind-down. Only populated when
+   * `includeTomorrow` is passed to `gatherSnapshot` — morning and now-brief
+   * requests don't pay for a fetch they don't need. `null` means "wasn't
+   * asked for or the fetch failed"; `{firstEvent: null}` means "genuinely
+   * nothing tomorrow", which is itself worth saying.
+   */
+  tomorrow: { firstEvent: { title: string; start: string; location: string } | null } | null;
 };
 
 /** Symbols the briefing is allowed to mention, from the watchlist config. */
@@ -132,18 +140,24 @@ export async function gatherSnapshot({
   longitude = HOME_LOCATION.longitude,
   place = HOME_LOCATION.label,
   now = new Date(),
+  includeTomorrow = false,
 }: {
   latitude?: number;
   longitude?: number;
   place?: string;
   now?: Date;
+  includeTomorrow?: boolean;
 } = {}): Promise<BriefingSnapshot> {
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
   // The calendar is read first: the commute depends on it, and everything
   // else can be fetched alongside.
   const events = await getTodaysEvents(now);
-  const [inbox, taskList] = await Promise.all([getInbox(now), getTasks(now)]);
+  const [inbox, taskList, tomorrow] = await Promise.all([
+    getInbox(now),
+    getTasks(now),
+    includeTomorrow ? tomorrowFirstEvent(now) : Promise.resolve(null),
+  ]);
 
   const [weather, portfolio, news, commute] = await Promise.all([
     getWeather(latitude, longitude, place)
@@ -231,5 +245,25 @@ export async function gatherSnapshot({
     portfolio,
     news,
     commute,
+    tomorrow,
   };
+}
+
+/**
+ * `getTodaysEvents` is written purely off the date it's passed — nothing in
+ * it reads the actual wall clock — so calling it with tomorrow's date just
+ * works. No calendar-layer changes needed for this.
+ */
+async function tomorrowFirstEvent(now: Date): Promise<BriefingSnapshot["tomorrow"]> {
+  try {
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60_000);
+    const events = await getTodaysEvents(tomorrow);
+    const first = [...events].sort((a, b) => toMinutes(a.start) - toMinutes(b.start))[0];
+
+    return {
+      firstEvent: first ? { title: first.title, start: spoken(first.start), location: first.location } : null,
+    };
+  } catch {
+    return null;
+  }
 }

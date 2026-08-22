@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { hasBriefedToday, markBriefedToday, readNowMemory, writeNowMemory } from "@/lib/briefedToday";
+import {
+  hasBriefedToday,
+  hasWoundDownToday,
+  markBriefedToday,
+  markWoundDownToday,
+  readNowMemory,
+  writeNowMemory,
+} from "@/lib/briefedToday";
 
 export type VoiceState = "idle" | "loading" | "speaking" | "blocked" | "unsupported";
 
@@ -10,10 +17,10 @@ export type VoiceSource = "server" | "browser" | null;
 
 /**
  * "morning" is the full briefing, played once a day. "now" is the short
- * update every open after that: the time, what's next, and only what's
- * actionable in the moment.
+ * update every open after that. "evening" is the wind-down — also once a
+ * day, triggered by "Hey Miles, goodnight" or the first open past 8pm.
  */
-export type SpeakMode = "morning" | "now";
+export type SpeakMode = "morning" | "now" | "evening";
 
 const MUTE_KEY = "mb:voice-muted";
 
@@ -131,14 +138,19 @@ export function useBriefingVoice() {
     }
   }, []);
 
-  /** Called the moment audio or speech actually starts, never before. */
+  /** Called the moment the briefing (not a question, not the week ahead) actually starts. */
   const commitSpoken = useCallback(() => {
     if (modeRef.current === "morning") markBriefedToday();
+    if (modeRef.current === "evening") markWoundDownToday();
     if (pendingKeysRef.current.length) {
       writeNowMemory(pendingKeysRef.current);
       pendingKeysRef.current = [];
     }
   }, []);
+
+  /** No-op onStart for anything that isn't the daily briefing — a question,
+   *  the week ahead — which must never mark today briefed or wound down. */
+  const noCommit = useCallback(() => {}, []);
 
   const stop = useCallback(() => {
     releaseAudio();
@@ -165,10 +177,10 @@ export function useBriefingVoice() {
    * which is a different thing entirely: the audio exists, the browser just
    * wants a gesture first, so that becomes `blocked` rather than a fallback.
    */
-  const playServerAudio = useCallback(async (query: string): Promise<boolean> => {
+  const playServerAudio = useCallback(async (url: string, onStart: () => void): Promise<boolean> => {
     let blob: Blob;
     try {
-      const res = await fetch(`/api/briefing/audio?${query}`);
+      const res = await fetch(url);
       // 501 means no backend is configured — an expected state, not a failure.
       if (!res.ok) return false;
       blob = await res.blob();
@@ -178,15 +190,15 @@ export function useBriefingVoice() {
     }
 
     releaseAudio();
-    const url = URL.createObjectURL(blob);
-    objectUrlRef.current = url;
+    const objectUrl = URL.createObjectURL(blob);
+    objectUrlRef.current = objectUrl;
 
-    const audio = new Audio(url);
+    const audio = new Audio(objectUrl);
     audioRef.current = audio;
     audio.onplaying = () => {
       setVoiceSource("server");
       setState("speaking");
-      commitSpoken();
+      onStart();
     };
     audio.onended = () => {
       setState("idle");
@@ -201,7 +213,7 @@ export function useBriefingVoice() {
       setState("blocked");
       return true;
     }
-  }, [releaseAudio, commitSpoken]);
+  }, [releaseAudio]);
 
   /**
    * Reads the briefing with the browser's own engine.
@@ -210,7 +222,7 @@ export function useBriefingVoice() {
    * long utterance after roughly fifteen seconds, and a queue of short ones
    * is the standard way around it. It also lets `cancel()` stop promptly.
    */
-  const speakLocally = useCallback((text: string) => {
+  const speakLocally = useCallback((text: string, onStart: () => void) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       setState("unsupported");
       return;
@@ -243,7 +255,7 @@ export function useBriefingVoice() {
         spokeAnything = true;
         setVoiceSource("browser");
         setState("speaking");
-        commitSpoken();
+        onStart();
       };
       if (index === chunks.length - 1) {
         utterance.onend = () => setState("idle");
@@ -261,7 +273,7 @@ export function useBriefingVoice() {
     window.setTimeout(() => {
       if (!spokeAnything) setState((current) => (current === "loading" ? "blocked" : current));
     }, 1800);
-  }, [commitSpoken]);
+  }, []);
 
   /**
    * Fetches the briefing and reads it, preferring the server's voice.
@@ -281,9 +293,18 @@ export function useBriefingVoice() {
       startedRef.current = true;
 
       // An explicit mode wins; otherwise the replay button repeats whatever
-      // was last played, and the automatic open decides by the day's history.
+      // was last played, and the automatic open decides by the day's history:
+      // the morning briefing first, the wind-down once past 8pm, the short
+      // update for everything in between.
       const mode: SpeakMode =
-        options.mode ?? (options.force ? modeRef.current : hasBriefedToday() ? "now" : "morning");
+        options.mode ??
+        (options.force
+          ? modeRef.current
+          : !hasBriefedToday()
+            ? "morning"
+            : new Date().getHours() >= 20 && !hasWoundDownToday()
+              ? "evening"
+              : "now");
       modeRef.current = mode;
 
       setState("loading");
@@ -309,17 +330,73 @@ export function useBriefingVoice() {
         return;
       }
 
-      if (await playServerAudio(query)) return;
-      speakLocally(text);
+      if (await playServerAudio(`/api/briefing/audio?${query}`, commitSpoken)) return;
+      speakLocally(text, commitSpoken);
     },
-    [playServerAudio, speakLocally],
+    [playServerAudio, speakLocally, commitSpoken],
   );
+
+  /**
+   * Asks Miles a freeform question, grounded in today's data. Never counts as
+   * the daily briefing or the wind-down — questions can happen any time.
+   */
+  const ask = useCallback(
+    async (question: string) => {
+      if (!canSpeak()) {
+        setState("unsupported");
+        return;
+      }
+      setState("loading");
+      pendingKeysRef.current = [];
+
+      const q = new URLSearchParams({ q: question }).toString();
+
+      let text: string;
+      try {
+        const res = await fetch(`/api/ask?${q}`);
+        if (!res.ok) throw new Error(String(res.status));
+        text = await res.text();
+      } catch {
+        setState("idle");
+        return;
+      }
+
+      if (await playServerAudio(`/api/ask/audio?${q}`, noCommit)) return;
+      speakLocally(text, noCommit);
+    },
+    [playServerAudio, speakLocally, noCommit],
+  );
+
+  /** "Hey Miles, week ahead" — a Sunday-night glance at the coming week. */
+  const weekAhead = useCallback(async () => {
+    if (!canSpeak()) {
+      setState("unsupported");
+      return;
+    }
+    setState("loading");
+    pendingKeysRef.current = [];
+
+    let text: string;
+    try {
+      const res = await fetch("/api/week");
+      if (!res.ok) throw new Error(String(res.status));
+      text = await res.text();
+    } catch {
+      setState("idle");
+      return;
+    }
+
+    if (await playServerAudio("/api/week/audio", noCommit)) return;
+    speakLocally(text, noCommit);
+  }, [playServerAudio, speakLocally, noCommit]);
 
   return {
     state: supported ? state : ("unsupported" as VoiceState),
     voiceSource,
     muted,
     speak,
+    ask,
+    weekAhead,
     stop,
     toggleMute,
   };

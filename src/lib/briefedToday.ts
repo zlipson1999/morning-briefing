@@ -14,6 +14,7 @@ import { useSyncExternalStore } from "react";
  */
 
 const KEY = "mb:briefed";
+const EVENING_KEY = "mb:evening";
 const NOW_KEY = "mb:now";
 
 function today(): string {
@@ -36,6 +37,23 @@ export function hasBriefedToday(): boolean {
 export function markBriefedToday(): void {
   try {
     localStorage.setItem(KEY, today());
+  } catch {
+    /* private mode — the preference just won't persist */
+  }
+}
+
+export function hasWoundDownToday(): boolean {
+  try {
+    return localStorage.getItem(EVENING_KEY) === today();
+  } catch {
+    return false;
+  }
+}
+
+/** Called once the evening wind-down has actually started speaking. */
+export function markWoundDownToday(): void {
+  try {
+    localStorage.setItem(EVENING_KEY, today());
   } catch {
     /* private mode — the preference just won't persist */
   }

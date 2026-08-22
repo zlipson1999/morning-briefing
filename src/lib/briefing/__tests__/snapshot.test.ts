@@ -64,4 +64,17 @@ describe("gatherSnapshot", () => {
     expect(tasks.items.every((task) => task.priority)).toBe(true);
     expect(tasks.items.some((task) => task.overdue)).toBe(false);
   });
+
+  it("leaves tomorrow null unless asked for it, since only the evening wind-down needs it", async () => {
+    const snapshot = await gatherSnapshot({ now: at(7) });
+    expect(snapshot.tomorrow).toBeNull();
+  });
+
+  it("fetches tomorrow's first event when asked", async () => {
+    const snapshot = await gatherSnapshot({ now: at(7), includeTomorrow: true });
+    // The sample calendar repeats identically on every date, so tomorrow's
+    // first event is the same standup as today's.
+    expect(snapshot.tomorrow).not.toBeNull();
+    expect(snapshot.tomorrow?.firstEvent?.title).toBe("Standup — Platform");
+  });
 });
