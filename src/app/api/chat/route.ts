@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   const { baseUrl, model } = ollamaConfig();
   const clientHour = Number(body.clientTime?.hour);
   const timeContext = Number.isInteger(clientHour) && clientHour >= 0 && clientHour <= 23
-    ? `The user's local hour is ${clientHour}; greet them with ${greetingForHour(clientHour)} if a greeting is appropriate. Their time zone is ${String(body.clientTime?.timeZone ?? "unknown").slice(0, 100)}.`
+    ? `The user's local hour is ${clientHour}. If a greeting is appropriate, use exactly “${greetingForHour(clientHour)}”; do not substitute a different time-of-day greeting. Their time zone is ${String(body.clientTime?.timeZone ?? "unknown").slice(0, 100)}.`
     : "The user's exact local time is unavailable; avoid a time-of-day greeting.";
   const currentContext = snapshot
     ? {
@@ -112,6 +112,9 @@ export async function POST(request: Request) {
 }
 
 function greetingForHour(hour: number) {
+  // After midnight can still be the user's late evening. Miles should not
+  // greet someone winding down at 1 a.m. as though they just woke up.
+  if (hour < 5) return "good evening";
   if (hour < 12) return "good morning";
   if (hour < 18) return "good afternoon";
   return "good evening";
