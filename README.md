@@ -299,7 +299,9 @@ The first open after **8pm** gets a once-daily evening wind-down instead. It
 looks backward at how many tasks got finished, says where the portfolio or
 watchlist closed when that data is real, and names the first event tomorrow.
 It skips the morning boot sequence and never repeats weather, news, or today's
-calendar. Later opens return to the short *what now* update.
+calendar. Later opens return to the short *what now* update. The moon button
+in the header plays the wind-down on demand, including on browsers without
+speech recognition.
 
 A fact whose *urgency* changed is new information, not a repeat: "leave in
 forty minutes" going quiet is right, and it becoming "leave in eight minutes"
