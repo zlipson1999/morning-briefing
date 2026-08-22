@@ -48,6 +48,28 @@ export default function VoiceButton() {
 
       <button
         type="button"
+        onClick={() => speak({ force: true, mode: "evening" })}
+        disabled={muted || state === "loading"}
+        aria-label="Play the evening wind-down"
+        title="Wind down today and hear what tomorrow starts with."
+        className="rounded-lg border border-ink-600 p-1.5 text-mist-400 transition-colors hover:border-[#8d86e8]/60 hover:text-[#aaa4ff] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-[#8d86e8] focus-visible:outline-none"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="size-3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M20.5 14.2A8 8 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
         onClick={toggleMute}
         aria-pressed={muted}
         aria-label={muted ? "Unmute the spoken briefing" : "Mute the spoken briefing"}
