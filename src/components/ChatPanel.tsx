@@ -8,6 +8,9 @@ import { mightRequestAction, type ActionProposal } from "@/lib/actions";
 import { useVoice } from "@/components/VoiceProvider";
 
 const STORAGE_KEY = "mb:chat";
+// Classification stands between the user and an ordinary answer, so it gets a
+// short budget and a Stop button rather than the route's full patience.
+const CLASSIFY_TIMEOUT_MS = 15_000;
 
 type Recognition = {
   continuous: boolean;
@@ -66,6 +69,7 @@ export default function ChatPanel() {
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<{ proposal: ActionProposal; confirmation: string } | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [classifying, setClassifying] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const loadedRef = useRef(false);
@@ -113,28 +117,43 @@ export default function ChatPanel() {
 
   async function ask(rawQuestion: string) {
     const question = rawQuestion.trim();
-    if (!question || loading) return;
+    if (!question || loading || classifying) return;
 
     if (mightRequestAction(question)) {
-      setActionBusy(true);
+      const controller = new AbortController();
+      abortRef.current = controller;
+      let timedOut = false;
+      const timer = window.setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, CLASSIFY_TIMEOUT_MS);
+      setClassifying(true);
       setError(null);
       try {
         const proposed = await fetch("/api/actions/propose", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question, localTime: new Date().toString() }),
+          signal: controller.signal,
         });
         const result = await proposed.json().catch(() => null);
         if (result?.proposal && typeof result?.confirmation === "string") {
+          // The card answers a question the transcript should still show.
+          setMessages((current) => [...current, { role: "user" as const, content: question }].slice(-20));
           setPendingAction({ proposal: result.proposal, confirmation: result.confirmation });
           setInput("");
-          setActionBusy(false);
           return;
         }
-      } catch {
-        // Classification is an enhancement. Ordinary chat still works.
+      } catch (cause) {
+        // Stop means stop. A slow or failed classification is only an
+        // enhancement going quiet, so the ordinary answer still happens.
+        const cancelled = cause instanceof DOMException && cause.name === "AbortError";
+        if (cancelled && !timedOut) return;
+      } finally {
+        window.clearTimeout(timer);
+        abortRef.current = null;
+        setClassifying(false);
       }
-      setActionBusy(false);
     }
 
     const next = [...messages, { role: "user" as const, content: question }].slice(-20);
@@ -302,6 +321,7 @@ export default function ChatPanel() {
 
   function clear() {
     abortRef.current?.abort();
+    setClassifying(false);
     if (recognitionTimerRef.current !== null) {
       window.clearTimeout(recognitionTimerRef.current);
       recognitionTimerRef.current = null;
@@ -433,7 +453,7 @@ export default function ChatPanel() {
                 <button
                   type="button"
                   onClick={listen}
-                  disabled={loading}
+                  disabled={loading || classifying}
                   aria-pressed={listening}
                   aria-label={listening ? "Stop listening" : "Speak to Miles"}
                   className={`rounded-xl border px-3 py-3 text-xs font-semibold disabled:opacity-40 ${listening ? "border-mail bg-mail/10 text-mail" : "border-[#5cc8de]/50 text-[#5cc8de]"}`}
@@ -441,13 +461,13 @@ export default function ChatPanel() {
                   {listening ? "Listening…" : "Mic"}
                 </button>
               )}
-              {loading ? (
+              {loading || classifying ? (
                 <button type="button" onClick={() => abortRef.current?.abort()} className="rounded-xl border border-mail/50 px-3 py-3 text-xs font-semibold text-mail">
                   Stop
                 </button>
               ) : (
                 <button type="submit" disabled={!input.trim() || actionBusy} className="rounded-xl bg-[#5cc8de] px-3 py-3 text-xs font-bold text-ink-950 disabled:opacity-40">
-                  {actionBusy ? "Checking…" : "Send"}
+                  {actionBusy ? "Working…" : "Send"}
                 </button>
               )}
             </div>

@@ -48,7 +48,7 @@ export async function saveRefreshToken(refreshToken: string): Promise<void> {
 
 export async function readRefreshToken(): Promise<string | null> {
   try {
-    const raw = JSON.parse(await fs.readFile(storePath(), "utf8"));
+    const raw = JSON.parse(await fs.readFile(/*turbopackIgnore: true*/ storePath(), "utf8"));
     const grant = unseal<StoredGrant>(raw?.sealed);
     return grant?.refreshToken ?? null;
   } catch {

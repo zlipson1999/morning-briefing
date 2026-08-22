@@ -558,7 +558,8 @@ src/
       news.ts       RSS/Atom/RDF parsing, per-feed error isolation
       weather.ts    Open-Meteo + Nominatim reverse geocoding
       etrade/       OAuth 1.0a signing, live client, mock provider
-      google/       direct polling: OAuth, Calendar, Gmail, Tasks — all read-only
+      google/       direct polling: OAuth, Calendar, Gmail, Tasks — Gmail read-only,
+                    Calendar and Tasks writable only behind a confirmation card
     seal.ts         AES-256-GCM sealing for stored secrets
       commute.ts    OSRM routing + Nominatim geocoding for the leave-by time
       news-rank.ts  ranks local headlines by consequence, falls back to recency

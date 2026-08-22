@@ -17,9 +17,12 @@ export async function POST(request: Request) {
     });
   }
 
+  // Everything here happens before Miles answers an ordinary question, so the
+  // whole route is budgeted to stay under the browser's classification timeout
+  // rather than to give a slow provider or a slow model its full patience.
   const snapshot = await Promise.race([
     gatherSnapshot(),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), 8_000)),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 5_000)),
   ]);
   const { baseUrl, model } = ollamaConfig();
   const now = typeof body?.localTime === "string" ? body.localTime.slice(0, 200) : new Date().toString();
@@ -51,7 +54,7 @@ User: ${question}`;
         options: { temperature: 0 },
         messages: [{ role: "user", content: prompt }],
       }),
-      signal: AbortSignal.timeout(45_000),
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(9_000)]),
     });
     if (!response.ok) return Response.json({ proposal: null });
     const result = await response.json();

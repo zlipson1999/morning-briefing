@@ -48,7 +48,7 @@ export function createPushStore<T extends PushRecord>(options: {
 
   async function read(): Promise<PushStore<T>> {
     try {
-      const parsed = JSON.parse(await fs.readFile(storePath(), "utf8")) as PushStore<T>;
+      const parsed = JSON.parse(await fs.readFile(/*turbopackIgnore: true*/ storePath(), "utf8")) as PushStore<T>;
       if (!parsed || typeof parsed !== "object" || !parsed.items) return empty;
       return parsed;
     } catch {
