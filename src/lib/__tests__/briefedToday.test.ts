@@ -22,5 +22,7 @@ describe("automaticBriefingMode", () => {
   it("returns to what-now after the evening wind-down has played", () => {
     expect(automaticBriefingMode({ hour: 21, morningPlayed: true, eveningPlayed: true }))
       .toBe("now");
+    expect(automaticBriefingMode({ hour: 21, morningPlayed: false, eveningPlayed: true }))
+      .toBe("now");
   });
 });
