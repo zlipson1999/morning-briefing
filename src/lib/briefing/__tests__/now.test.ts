@@ -12,7 +12,7 @@ function snapshot(overrides: Partial<BriefingSnapshot> = {}): BriefingSnapshot {
     inbox: { unread: 0, messages: [] },
     tasks: { open: 0, done: 0, items: [] },
     portfolio: null,
-    news: { local: [], global: [], curatedLocal: false },
+    news: { local: [], florida: [], us: [], world: [], curatedLocal: false },
     commute: null,
     tomorrow: null,
     ...overrides,
@@ -42,7 +42,9 @@ describe("composeNow", () => {
       snapshot({
         news: {
           local: [{ title: "Lantana bridge closes", source: "Palm Beach Post" }],
-          global: [{ title: "Somewhere far away", source: "BBC" }],
+          florida: [],
+          us: [],
+          world: [{ title: "Somewhere far away", source: "BBC" }],
           curatedLocal: true,
         },
         weather: {
