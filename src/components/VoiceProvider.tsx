@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useBriefingVoice, type SpeakMode, type VoiceSource, type VoiceState } from "@/hooks/useBriefingVoice";
 import { useWakeWord, type WakeWordState } from "@/hooks/useWakeWord";
-import { useBriefedToday } from "@/lib/briefedToday";
+import { useBriefedToday, useIsEvening } from "@/lib/briefedToday";
 import { interpretWakeCommand } from "@/lib/wakeCommands";
 import BootSequence from "./BootSequence";
 
@@ -45,8 +45,11 @@ export default function VoiceProvider({ children }: { children: ReactNode }) {
   const { state, voiceSource, muted, speak, stop, toggleMute } = useBriefingVoice();
 
   const briefedToday = useBriefedToday();
+  const isEvening = useIsEvening();
   const [skipped, setSkipped] = useState(false);
-  const booting = !briefedToday && !skipped;
+  // The reactor is the start of the morning ritual. A first visit after 8pm
+  // goes straight to the dashboard while the wind-down begins.
+  const booting = !briefedToday && !isEvening && !skipped;
 
   useEffect(() => {
     speak();
