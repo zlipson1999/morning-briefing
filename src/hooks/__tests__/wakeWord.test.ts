@@ -54,6 +54,11 @@ describe("interpretWakeCommand", () => {
     expect(interpretWakeCommand("start over")).toEqual({ kind: "speak", mode: "morning" });
   });
 
+  it("recognises the evening wind-down", () => {
+    expect(interpretWakeCommand("goodnight")).toEqual({ kind: "speak", mode: "evening" });
+    expect(interpretWakeCommand("evening wind down")).toEqual({ kind: "speak", mode: "evening" });
+  });
+
   it("stops on being told to", () => {
     expect(interpretWakeCommand("stop")).toEqual({ kind: "stop" });
     expect(interpretWakeCommand("be quiet")).toEqual({ kind: "stop" });
