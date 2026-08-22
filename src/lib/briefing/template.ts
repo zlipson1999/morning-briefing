@@ -1,4 +1,5 @@
 import { describeUv } from "@/lib/providers/weather";
+import { inboxDigest } from "./emailDigest";
 import { endSentence } from "./prose";
 import type { BriefingSnapshot } from "./snapshot";
 
@@ -105,13 +106,7 @@ export function composeTemplate(snapshot: BriefingSnapshot): string {
   }
 
   // 3. Inbox.
-  const important = inbox.messages.filter((message) => message.important);
-  lines.push(
-    `${inbox.unread} unread ${inbox.unread === 1 ? "email" : "emails"}` +
-      (important.length
-        ? `, including flagged notes from ${important.map((m) => m.sender.split(" ")[0]).join(" and ")}.`
-        : "."),
-  );
+  lines.push(inboxDigest(inbox));
 
   // 4. The shape of the day.
   const upcoming = schedule.events.filter((event) => event.status !== "past");
