@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { hasBriefedToday, markBriefedToday, readNowMemory, writeNowMemory } from "@/lib/briefedToday";
+import {
+  hasBriefedToday,
+  hasEveningBriefedToday,
+  markBriefedToday,
+  markEveningBriefedToday,
+  readNowMemory,
+  writeNowMemory,
+} from "@/lib/briefedToday";
 
 export type VoiceState = "idle" | "loading" | "speaking" | "blocked" | "unsupported";
 
@@ -13,7 +20,7 @@ export type VoiceSource = "server" | "browser" | null;
  * update every open after that: the time, what's next, and only what's
  * actionable in the moment.
  */
-export type SpeakMode = "morning" | "now";
+export type SpeakMode = "morning" | "now" | "evening";
 
 const MUTE_KEY = "mb:voice-muted";
 
@@ -134,6 +141,7 @@ export function useBriefingVoice() {
   /** Called the moment audio or speech actually starts, never before. */
   const commitSpoken = useCallback(() => {
     if (modeRef.current === "morning") markBriefedToday();
+    if (modeRef.current === "evening") markEveningBriefedToday();
     if (pendingKeysRef.current.length) {
       writeNowMemory(pendingKeysRef.current);
       pendingKeysRef.current = [];
@@ -282,8 +290,14 @@ export function useBriefingVoice() {
 
       // An explicit mode wins; otherwise the replay button repeats whatever
       // was last played, and the automatic open decides by the day's history.
-      const mode: SpeakMode =
-        options.mode ?? (options.force ? modeRef.current : hasBriefedToday() ? "now" : "morning");
+      const mode: SpeakMode = options.mode ??
+        (options.force
+          ? modeRef.current
+          : new Date().getHours() >= 20 && !hasEveningBriefedToday()
+            ? "evening"
+            : hasBriefedToday()
+              ? "now"
+              : "morning");
       modeRef.current = mode;
 
       setState("loading");
