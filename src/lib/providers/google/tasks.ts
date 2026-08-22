@@ -1,6 +1,6 @@
 import { cached } from "@/lib/cache";
 import { dueLabelFor, type TaskItem } from "@/lib/tasks";
-import { googleGet, googleIsConnected } from "./auth";
+import { googleGet, googleIsConnected, googleRequest } from "./auth";
 
 /**
  * Open work, straight from the Google Tasks API.
@@ -83,3 +83,44 @@ export async function googleTasks(now: Date): Promise<TaskItem[] | null> {
   });
   return value;
 }
+
+async function firstTaskListId(): Promise<string> {
+  const body = await googleGet("https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=10");
+  const first = ((body?.items as ApiList[]) ?? []).find((list) => list.id);
+  if (!first?.id) throw new Error("Google Tasks has no task list available.");
+  return first.id;
+}
+
+export async function createGoogleTask(input: { title: string; due?: string }) {
+  if (!input.title.trim()) throw new Error("The task needs a title.");
+  const listId = await firstTaskListId();
+  const due = input.due ? new Date(input.due) : null;
+  return googleRequest(
+    `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks`,
+    "POST",
+    {
+      title: input.title.trim().slice(0, 300),
+      due: due && !Number.isNaN(due.getTime()) ? due.toISOString() : undefined,
+    },
+  );
+}
+
+export async function completeGoogleTask(taskId: string) {
+  const listsBody = await googleGet("https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=10");
+  const lists = ((listsBody?.items as ApiList[]) ?? []).filter((list) => list.id);
+  for (const list of lists) {
+    const body = await googleGet(
+      `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(list.id!)}/tasks?showCompleted=false&maxResults=100`,
+    );
+    const match = ((body?.items as ApiTask[]) ?? []).find((task) => task.id === taskId);
+    if (match?.id) {
+      return googleRequest(
+        `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(list.id!)}/tasks/${encodeURIComponent(match.id)}`,
+        "PATCH",
+        { status: "completed", completed: new Date().toISOString() },
+      );
+    }
+  }
+  throw new Error("That open Google task could not be found.");
+}
+
