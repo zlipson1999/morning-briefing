@@ -207,7 +207,7 @@ describe("composeTemplate", () => {
     const us = text.indexOf("Congress advances infrastructure plan");
     const world = text.indexOf("Global summit reaches agreement");
     const tasks = text.indexOf("1 open task");
-    const inbox = text.indexOf("unread email");
+    const inbox = text.indexOf("inbox is clear");
 
     expect(local).toBeGreaterThan(-1);
     expect(local).toBeLessThan(florida);
@@ -268,7 +268,7 @@ describe("composeTemplate", () => {
     expect(text).not.toContain("Important thing");
   });
 
-  it("names flagged senders by first name", () => {
+  it("prioritizes flagged mail and limits the spoken summary", () => {
     const text = composeTemplate(
       snapshot({
         inbox: {
@@ -281,7 +281,10 @@ describe("composeTemplate", () => {
         },
       }),
     );
-    expect(text).toContain("3 unread emails, including flagged notes from Priya and Sofia.");
+    expect(text).toContain("You have 3 unread emails.");
+    expect(text).toContain("The 3 worth a quick look are from Priya");
+    expect(text).toContain("Sofia");
+    expect(text).toContain("GitHub");
   });
 });
 

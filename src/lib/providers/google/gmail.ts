@@ -7,14 +7,17 @@ import { googleGet, googleIsConnected } from "./auth";
  * What's waiting on you, straight from the Gmail API.
  *
  * The search does the filtering Gmail-side, so Miles never even lists the
- * noise. Default is flagged-and-unread from the last two days; override with
- * GMAIL_SEARCH — `from:` lists of the people you actually answer work well.
+ * noise. By default it includes both flagged mail and Gmail's "AI Inbox"
+ * section from the last two days. Override with GMAIL_SEARCH if that section
+ * has a different label in this account.
  */
 
-const DEFAULT_SEARCH = "is:important is:unread newer_than:2d";
+const DEFAULT_AI_INBOX_LABEL = "AI Inbox";
 
 export function gmailSearch(): string {
-  return process.env.GMAIL_SEARCH || DEFAULT_SEARCH;
+  if (process.env.GMAIL_SEARCH) return process.env.GMAIL_SEARCH;
+  const aiInboxLabel = process.env.GMAIL_AI_INBOX_LABEL || DEFAULT_AI_INBOX_LABEL;
+  return `is:unread newer_than:2d {is:important label:"${aiInboxLabel.replaceAll('"', "")}"}`;
 }
 
 type Header = { name?: string; value?: string };
@@ -86,3 +89,4 @@ export async function googleInbox(now: Date): Promise<MailMessage[] | null> {
   });
   return value;
 }
+

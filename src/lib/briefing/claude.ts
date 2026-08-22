@@ -41,7 +41,9 @@ Order, and what earns a sentence:
    Include the top available story from every level, in that order, and name each outlet.
    Use no more than two local stories and one story for each wider level.
 3. Tasks — what they owe, overdue first.
-4. Inbox — who is waiting on them, and what for.
+4. Inbox — give the overall unread count, then summarize no more than three genuinely useful
+   messages. Say who sent each one, what it actually means, and any action requested. Never
+   recite raw subject lines, reply/forward prefixes, ticket numbers, labels, or mailbox metadata.
 5. The shape of the day: how many events, what is next, where the free time sits.
 6. Weather, then the portfolio.
 
@@ -67,7 +69,8 @@ Answer one question: what now?
 
 - Lead with the time, and what they are in the middle of if anything.
 - Then anything that needs them to move or act within the next few hours: a leave-by time,
-  something starting soon, an overdue task, a flagged message that arrived recently.
+  something starting soon, an overdue task, a flagged message that arrived recently. Summarize
+  at most two messages in natural language; never quote their raw subject lines or ticket labels.
 - Name what is next and how long away it is.
 - If nothing needs them, say so plainly and stop. A short update is the correct output when
   nothing has changed; padding it is worse than silence.
@@ -115,6 +118,11 @@ function cacheKey(snapshot: BriefingSnapshot, mode: BriefingMode): string {
     tasksOpen: snapshot.tasks.open,
     tasksDone: snapshot.tasks.done,
     unread: snapshot.inbox.unread,
+    mail: snapshot.inbox.messages.slice(0, 3).map((message) => [
+      message.sender,
+      message.subject,
+      message.preview.slice(0, 100),
+    ]),
     portfolio: snapshot.portfolio?.dayChangePct?.toFixed(1),
     headlines: [
       snapshot.news.local[0]?.title,
@@ -192,3 +200,4 @@ export async function composeWithClaude(
     return null;
   }
 }
+
