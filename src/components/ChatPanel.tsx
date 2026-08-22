@@ -1,32 +1,109 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useLocation } from "@/hooks/useLocation";
 import type { ChatMessage } from "@/lib/ollama";
+import { useVoice } from "@/components/VoiceProvider";
 
 const STORAGE_KEY = "mb:chat";
 
+type Recognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  abort: () => void;
+  onresult: ((event: RecognitionEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+};
+
+type RecognitionEvent = {
+  resultIndex: number;
+  results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>;
+};
+
+function recognitionClass(): (new () => Recognition) | null {
+  if (typeof window === "undefined") return null;
+  const browser = window as unknown as Record<string, unknown>;
+  return (browser.SpeechRecognition ?? browser.webkitSpeechRecognition ?? null) as (new () => Recognition) | null;
+}
+
+const subscribeSupport = () => () => {};
+
+function greetingFor(hour: number) {
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function speechChunks(text: string): string[] {
+  return text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.flatMap((sentence) => {
+    const clean = sentence.trim();
+    if (clean.length <= 220) return clean;
+    return clean.match(/.{1,220}(?:\s|$)/g)?.map((part) => part.trim()) ?? [clean];
+  }) ?? [];
+}
+
 export default function ChatPanel() {
   const location = useLocation();
+  const { muted, toggleMute, stop: stopBriefing } = useVoice();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const speechSupported = useSyncExternalStore(
+    subscribeSupport,
+    () => Boolean(recognitionClass()),
+    () => false,
+  );
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const loadedRef = useRef(false);
+  const recognitionRef = useRef<Recognition | null>(null);
 
   useEffect(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-20))); } catch { /* private mode */ }
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      recognitionRef.current?.abort();
+      window.speechSynthesis?.cancel();
+    };
+  }, []);
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const question = input.trim();
+  function stopSpeaking() {
+    window.speechSynthesis?.cancel();
+    setSpeaking(false);
+    stopBriefing();
+  }
+
+  function speakAnswer(text: string) {
+    if (muted || !("speechSynthesis" in window) || !text.trim()) return;
+    window.speechSynthesis.cancel();
+    const chunks = speechChunks(text);
+    if (!chunks.length) return;
+    setSpeaking(true);
+    chunks.forEach((chunk, index) => {
+      const utterance = new SpeechSynthesisUtterance(chunk);
+      utterance.lang = "en-US";
+      utterance.rate = 0.98;
+      if (index === chunks.length - 1) {
+        utterance.onend = () => setSpeaking(false);
+        utterance.onerror = () => setSpeaking(false);
+      }
+      window.speechSynthesis.speak(utterance);
+    });
+  }
+
+  async function ask(rawQuestion: string) {
+    const question = rawQuestion.trim();
     if (!question || loading) return;
 
     const next = [...messages, { role: "user" as const, content: question }].slice(-20);
@@ -48,6 +125,11 @@ export default function ChatPanel() {
             longitude: location.longitude,
             place: location.label,
           },
+          clientTime: {
+            local: new Date().toString(),
+            hour: new Date().getHours(),
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
         }),
         signal: controller.signal,
       });
@@ -58,16 +140,19 @@ export default function ChatPanel() {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let answer = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
+        answer += chunk;
         setMessages((current) => current.map((message, index) =>
           index === current.length - 1
             ? { ...message, content: message.content + chunk }
             : message,
         ));
       }
+      speakAnswer(answer);
     } catch (cause) {
       if ((cause as Error).name !== "AbortError") {
         setError(cause instanceof Error ? cause.message : "Miles couldn't answer.");
@@ -79,8 +164,51 @@ export default function ChatPanel() {
     }
   }
 
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    void ask(input);
+  }
+
+  function listen() {
+    if (listening || loading) {
+      recognitionRef.current?.abort();
+      return;
+    }
+    const RecognitionClass = recognitionClass();
+    if (!RecognitionClass) return;
+    stopSpeaking();
+    const recognition = new RecognitionClass();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    recognitionRef.current = recognition;
+    let finalTranscript = "";
+    recognition.onresult = (event) => {
+      let transcript = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        transcript += event.results[index][0].transcript;
+        if (event.results[index].isFinal) finalTranscript += event.results[index][0].transcript;
+      }
+      setInput((finalTranscript || transcript).trim());
+    };
+    recognition.onerror = (event) => {
+      if (event.error !== "aborted" && event.error !== "no-speech") setError(`Microphone: ${event.error}.`);
+      setListening(false);
+    };
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+      if (finalTranscript.trim()) void ask(finalTranscript);
+    };
+    setError(null);
+    setListening(true);
+    recognition.start();
+  }
+
   function clear() {
     abortRef.current?.abort();
+    recognitionRef.current?.abort();
+    stopSpeaking();
     setMessages([]);
     setError(null);
     setLoading(false);
@@ -124,6 +252,23 @@ export default function ChatPanel() {
             <button type="button" onClick={clear} className="ml-auto text-xs text-mist-400 hover:text-mist-100">
               Clear
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!muted) stopSpeaking();
+                toggleMute();
+              }}
+              aria-pressed={muted}
+              aria-label={muted ? "Unmute chat answers" : "Mute chat answers"}
+              className="text-xs text-mist-400 hover:text-mist-100"
+            >
+              {muted ? "Unmute" : "Mute"}
+            </button>
+            {speaking && (
+              <button type="button" onClick={stopSpeaking} className="text-xs text-mail hover:text-mist-100">
+                Stop voice
+              </button>
+            )}
             <button type="button" onClick={() => setOpen(false)} aria-label="Close chat" className="text-lg text-mist-400 hover:text-mist-100">
               ×
             </button>
@@ -132,7 +277,7 @@ export default function ChatPanel() {
           <div className="scroll-slim min-h-0 flex-1 space-y-3 overflow-y-auto p-4" aria-live="polite">
             {messages.length === 0 && (
               <div className="rounded-xl border border-ink-700 bg-ink-850 px-4 py-3 text-sm leading-relaxed text-mist-300">
-                Ask about your day, the news, your schedule, or anything else. The conversation stays on this PC.
+                {greetingFor(new Date().getHours())}. Ask about your day, the news, your schedule, or anything else. The conversation stays on this PC.
               </div>
             )}
             {messages.map((message, index) => (
@@ -167,6 +312,18 @@ export default function ChatPanel() {
                 placeholder="Ask Miles…"
                 className="min-h-12 flex-1 resize-none rounded-xl border border-ink-600 bg-ink-850 px-3 py-2 text-sm text-mist-100 placeholder:text-mist-400 focus:border-[#5cc8de]/70 focus:outline-none"
               />
+              {speechSupported && (
+                <button
+                  type="button"
+                  onClick={listen}
+                  disabled={loading}
+                  aria-pressed={listening}
+                  aria-label={listening ? "Stop listening" : "Speak to Miles"}
+                  className={`rounded-xl border px-3 py-3 text-xs font-semibold disabled:opacity-40 ${listening ? "border-mail bg-mail/10 text-mail" : "border-[#5cc8de]/50 text-[#5cc8de]"}`}
+                >
+                  {listening ? "Listening…" : "Mic"}
+                </button>
+              )}
               {loading ? (
                 <button type="button" onClick={() => abortRef.current?.abort()} className="rounded-xl border border-mail/50 px-3 py-3 text-xs font-semibold text-mail">
                   Stop

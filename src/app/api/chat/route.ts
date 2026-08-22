@@ -9,7 +9,11 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  let body: { messages?: unknown; location?: { latitude?: unknown; longitude?: unknown; place?: unknown } };
+  let body: {
+    messages?: unknown;
+    location?: { latitude?: unknown; longitude?: unknown; place?: unknown };
+    clientTime?: { local?: unknown; hour?: unknown; timeZone?: unknown };
+  };
   try {
     body = await request.json();
   } catch {
@@ -36,6 +40,10 @@ export async function POST(request: Request) {
     new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
   ]);
   const { baseUrl, model } = ollamaConfig();
+  const clientHour = Number(body.clientTime?.hour);
+  const timeContext = Number.isInteger(clientHour) && clientHour >= 0 && clientHour <= 23
+    ? `The user's local hour is ${clientHour}; greet them with ${greetingForHour(clientHour)} if a greeting is appropriate. Their time zone is ${String(body.clientTime?.timeZone ?? "unknown").slice(0, 100)}.`
+    : "The user's exact local time is unavailable; avoid a time-of-day greeting.";
   const currentContext = snapshot
     ? {
         now: snapshot.now,
@@ -67,8 +75,8 @@ export async function POST(request: Request) {
           {
             role: "system",
             content: currentContext
-              ? `${MILES_CHAT_SYSTEM}\n\nCurrent snapshot:\n${JSON.stringify(currentContext)}`
-              : `${MILES_CHAT_SYSTEM}\n\nCurrent snapshot: temporarily unavailable.`,
+              ? `${MILES_CHAT_SYSTEM}\n${timeContext}\n\nCurrent snapshot:\n${JSON.stringify(currentContext)}`
+              : `${MILES_CHAT_SYSTEM}\n${timeContext}\n\nCurrent snapshot: temporarily unavailable.`,
           },
           ...messages,
         ],
@@ -101,6 +109,12 @@ export async function POST(request: Request) {
       "X-Miles-Model": model,
     },
   });
+}
+
+function greetingForHour(hour: number) {
+  if (hour < 12) return "good morning";
+  if (hour < 18) return "good afternoon";
+  return "good evening";
 }
 
 /** Convert Ollama's newline-delimited JSON stream into plain text chunks. */
