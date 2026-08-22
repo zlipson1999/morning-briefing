@@ -62,6 +62,32 @@ body::before {
   background: transparent;
 }
 
+/* Installed phone layout: keep floating controls clear of the home indicator,
+   rounded screen corners and notches without wasting desktop space. */
+.phone-safe-main {
+  padding-bottom: max(2rem, calc(env(safe-area-inset-bottom) + 1rem));
+}
+.phone-safe-right {
+  right: max(1.25rem, calc(env(safe-area-inset-right) + 0.75rem));
+  bottom: max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+}
+.phone-safe-left {
+  left: max(1.25rem, calc(env(safe-area-inset-left) + 0.75rem));
+  bottom: max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+}
+.phone-safe-chat {
+  right: max(1rem, calc(env(safe-area-inset-right) + 0.5rem));
+  bottom: max(5rem, calc(env(safe-area-inset-bottom) + 4.5rem));
+}
+@media (max-width: 640px) {
+  .phone-safe-chat {
+    left: max(0.5rem, env(safe-area-inset-left));
+    right: max(0.5rem, env(safe-area-inset-right));
+    width: auto;
+    height: min(72dvh, 620px);
+  }
+}
+
 @keyframes rise {
   from {
     opacity: 0;
@@ -146,3 +172,4 @@ body::before {
   }
   .boot-overlay { transition-duration: 0.01ms !important; }
 }
+

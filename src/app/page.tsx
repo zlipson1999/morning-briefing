@@ -15,7 +15,7 @@ export default function Home() {
        page itself never scrolls — the grid is bounded to the viewport and each
        panel scrolls inside its own body. Below lg the panels stack and the
        page scrolls normally. */
-    <main className="relative mx-auto flex min-h-dvh w-full max-w-[1700px] flex-col gap-6 px-5 py-8 sm:px-8 sm:py-9 lg:h-dvh lg:min-h-0 lg:overflow-hidden">
+    <main className="phone-safe-main relative mx-auto flex min-h-dvh w-full max-w-[1700px] flex-col gap-6 px-5 py-8 sm:px-8 sm:py-9 lg:h-dvh lg:min-h-0 lg:overflow-hidden">
       <Header />
       <LeaveBy />
 

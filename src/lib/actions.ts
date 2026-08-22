@@ -4,12 +4,14 @@ export type MilesAction =
   | { kind: "task.complete"; taskId: string; title: string }
   | { kind: "email.dismiss"; messageId: string; title: string }
   | { kind: "watchlist.add"; symbol: string }
-  | { kind: "watchlist.remove"; symbol: string };
+  | { kind: "watchlist.remove"; symbol: string }
+  | { kind: "memory.remember"; text: string }
+  | { kind: "memory.forget"; query: string };
 
 export type ActionProposal = { action: MilesAction; summary: string };
 
 export function mightRequestAction(text: string) {
-  return /\b(add|create|book|complete|finish|check off|dismiss|clear|remove|watch|unwatch)\b/i.test(text) ||
+  return /\b(add|create|book|complete|finish|check off|dismiss|clear|remove|watch|unwatch|remember|forget)\b/i.test(text) ||
     /\bschedule\s+\w/i.test(text);
 }
 
@@ -33,10 +35,22 @@ export function validProposal(value: unknown): ActionProposal | null {
   if (action.kind === "watchlist.add" || action.kind === "watchlist.remove") {
     return typeof action.symbol === "string" ? proposal as ActionProposal : null;
   }
+  if (action.kind === "memory.remember") return typeof action.text === "string" ? proposal as ActionProposal : null;
+  if (action.kind === "memory.forget") return typeof action.query === "string" ? proposal as ActionProposal : null;
   return null;
 }
 
 export function deterministicProposal(text: string): ActionProposal | null {
+  const remember = /^\s*remember(?:\s+that)?\s+(.+?)\s*$/i.exec(text);
+  if (remember?.[1]) {
+    const memory = remember[1].trim();
+    return { summary: `Remember “${memory}”.`, action: { kind: "memory.remember", text: memory } };
+  }
+  const forget = /^\s*forget(?:\s+that|\s+about)?\s+(.+?)\s*$/i.exec(text);
+  if (forget?.[1]) {
+    const query = forget[1].trim();
+    return { summary: `Forget the memory matching “${query}”.`, action: { kind: "memory.forget", query } };
+  }
   const watch = /\b(add|remove|unwatch)\s+([A-Za-z][A-Za-z0-9.-]{0,11})\s+(?:to|from)\s+(?:my\s+)?watchlist\b/i.exec(text);
   if (watch) {
     const operation = watch[1].toLowerCase() === "add" ? "add" : "remove";

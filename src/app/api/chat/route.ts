@@ -5,6 +5,7 @@ import {
   normalizeChatMessages,
   ollamaConfig,
 } from "@/lib/ollama";
+import { readMemories } from "@/lib/memory";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
     new Promise<null>((resolve) => setTimeout(() => resolve(null), 10_000)),
   ]);
   const { baseUrl, model } = ollamaConfig();
+  const memories = await readMemories();
   const clientHour = Number(body.clientTime?.hour);
   const timeContext = Number.isInteger(clientHour) && clientHour >= 0 && clientHour <= 23
     ? `The user's local hour is ${clientHour}. If a greeting is appropriate, use exactly “${greetingForHour(clientHour)}”; do not substitute a different time-of-day greeting. Their time zone is ${String(body.clientTime?.timeZone ?? "unknown").slice(0, 100)}.`
@@ -75,8 +77,8 @@ export async function POST(request: Request) {
           {
             role: "system",
             content: currentContext
-              ? `${MILES_CHAT_SYSTEM}\n${timeContext}\n\nCurrent snapshot:\n${JSON.stringify(currentContext)}`
-              : `${MILES_CHAT_SYSTEM}\n${timeContext}\n\nCurrent snapshot: temporarily unavailable.`,
+              ? `${MILES_CHAT_SYSTEM}\n${timeContext}\n\nPrivate memories:\n${JSON.stringify(memories.map(({ text }) => text))}\n\nCurrent snapshot:\n${JSON.stringify(currentContext)}`
+              : `${MILES_CHAT_SYSTEM}\n${timeContext}\n\nPrivate memories:\n${JSON.stringify(memories.map(({ text }) => text))}\n\nCurrent snapshot: temporarily unavailable.`,
           },
           ...messages,
         ],

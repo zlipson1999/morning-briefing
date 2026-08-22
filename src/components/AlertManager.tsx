@@ -110,7 +110,7 @@ export default function AlertManager() {
       onClick={() => void toggle()}
       aria-pressed={enabled}
       title="Alerts run while Miles is open or installed."
-      className="fixed bottom-5 left-5 z-40 rounded-full border border-ink-600 bg-ink-850/95 px-4 py-3 text-xs font-semibold text-mist-300 shadow-xl backdrop-blur hover:border-mail/60 hover:text-mist-100"
+      className="phone-safe-left fixed z-40 rounded-full border border-ink-600 bg-ink-850/95 px-4 py-3 text-xs font-semibold text-mist-300 shadow-xl backdrop-blur hover:border-mail/60 hover:text-mist-100"
     >
       {enabled ? "Alerts on" : "Enable alerts"}
     </button>

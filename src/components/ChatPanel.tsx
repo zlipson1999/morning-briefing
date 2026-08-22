@@ -335,7 +335,7 @@ export default function ChatPanel() {
         onClick={toggleOpen}
         aria-expanded={open}
         aria-controls="miles-chat"
-        className="fixed right-5 bottom-5 z-40 flex items-center gap-2 rounded-full border border-[#5cc8de]/40 bg-ink-850/95 px-4 py-3 text-sm font-semibold text-[#5cc8de] shadow-2xl backdrop-blur transition hover:border-[#5cc8de] focus-visible:ring-2 focus-visible:ring-[#5cc8de] focus-visible:outline-none"
+        className="phone-safe-right fixed z-40 flex items-center gap-2 rounded-full border border-[#5cc8de]/40 bg-ink-850/95 px-4 py-3 text-sm font-semibold text-[#5cc8de] shadow-2xl backdrop-blur transition hover:border-[#5cc8de] focus-visible:ring-2 focus-visible:ring-[#5cc8de] focus-visible:outline-none"
       >
         <span aria-hidden>✦</span>
         Ask Miles
@@ -345,7 +345,7 @@ export default function ChatPanel() {
         <section
           id="miles-chat"
           aria-label="Chat with Miles"
-          className="fixed right-4 bottom-20 z-40 flex h-[min(620px,calc(100dvh-7rem))] w-[min(430px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-ink-600 bg-ink-900/98 shadow-2xl backdrop-blur"
+          className="phone-safe-chat fixed z-40 flex h-[min(620px,calc(100dvh-7rem))] w-[min(430px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-ink-600 bg-ink-900/98 shadow-2xl backdrop-blur"
         >
           <header className="flex items-center gap-3 border-b border-ink-700 px-4 py-3">
             <div>
