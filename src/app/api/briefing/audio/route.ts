@@ -1,6 +1,7 @@
 import { HOME_LOCATION } from "@/lib/config";
-import { composeWithClaude, type BriefingMode } from "@/lib/briefing/claude";
+import { composeWithClaude } from "@/lib/briefing/claude";
 import { composeEvening } from "@/lib/briefing/evening";
+import { briefingMode } from "@/lib/briefing/mode";
 import { composeNow, nowKeys } from "@/lib/briefing/now";
 import { gatherSnapshot } from "@/lib/briefing/snapshot";
 import { composeTemplate } from "@/lib/briefing/template";
@@ -35,9 +36,7 @@ export async function GET(request: Request) {
     place: params.get("place") ?? HOME_LOCATION.label,
   });
 
-  const requestedMode = params.get("mode");
-  const mode: BriefingMode =
-    requestedMode === "now" || requestedMode === "evening" ? requestedMode : "morning";
+  const mode = briefingMode(params.get("mode"));
 
   // What the caller was told last time, so an update can skip what hasn't
   // changed rather than repeating itself twenty minutes later.
