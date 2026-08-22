@@ -58,6 +58,22 @@ export function markEveningBriefedToday(): void {
   }
 }
 
+export type AutomaticBriefingMode = "morning" | "now" | "evening";
+
+/** The once-per-open decision, kept pure so the day-boundary rules stay testable. */
+export function automaticBriefingMode({
+  hour,
+  morningPlayed,
+  eveningPlayed,
+}: {
+  hour: number;
+  morningPlayed: boolean;
+  eveningPlayed: boolean;
+}): AutomaticBriefingMode {
+  if (hour >= 20 && !eveningPlayed) return "evening";
+  return morningPlayed ? "now" : "morning";
+}
+
 /**
  * What the last "what now" update said, and when.
  *
@@ -113,4 +129,9 @@ const subscribe = () => () => {};
 
 export function useBriefedToday(): boolean {
   return useSyncExternalStore(subscribe, hasBriefedToday, () => true);
+}
+
+/** Hydration-safe clock check used only to decide whether to show the morning boot. */
+export function useIsEvening(): boolean {
+  return useSyncExternalStore(subscribe, () => new Date().getHours() >= 20, () => false);
 }
