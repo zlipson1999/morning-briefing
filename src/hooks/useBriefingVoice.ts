@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
+  automaticBriefingMode,
   hasBriefedToday,
   hasEveningBriefedToday,
   markBriefedToday,
@@ -293,11 +294,11 @@ export function useBriefingVoice() {
       const mode: SpeakMode = options.mode ??
         (options.force
           ? modeRef.current
-          : new Date().getHours() >= 20 && !hasEveningBriefedToday()
-            ? "evening"
-            : hasBriefedToday()
-              ? "now"
-              : "morning");
+          : automaticBriefingMode({
+              hour: new Date().getHours(),
+              morningPlayed: hasBriefedToday(),
+              eveningPlayed: hasEveningBriefedToday(),
+            }));
       modeRef.current = mode;
 
       setState("loading");
