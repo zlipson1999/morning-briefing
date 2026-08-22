@@ -277,7 +277,7 @@ number.
   the rain. Sections with nothing notable are left out rather than narrated,
   and it ends on the single most useful thing to do first.
 
-### Once a day, then what now
+### Morning, what now, and wind-down
 
 The full briefing is a morning thing. It plays once — on the first open of the
 day, behind the arc reactor — and after that every open gets a short update
@@ -294,6 +294,14 @@ and an urgency stage, and the browser remembers what it was told and when. An
 update twenty minutes after the last one skips whatever hasn't changed and says
 only what has — mail that landed in those twenty minutes, a meeting that has
 started, a task that has crossed into overdue.
+
+The first open after **8pm** gets a once-daily evening wind-down instead. It
+looks backward at how many tasks got finished, says where the portfolio or
+watchlist closed when that data is real, and names the first event tomorrow.
+It skips the morning boot sequence and never repeats weather, news, or today's
+calendar. Later opens return to the short *what now* update. The moon button
+in the header plays the wind-down on demand, including on browsers without
+speech recognition.
 
 A fact whose *urgency* changed is new information, not a repeat: "leave in
 forty minutes" going quiet is right, and it becoming "leave in eight minutes"
@@ -399,6 +407,7 @@ Say the name and it answers with the short update. A few phrasings do more:
 | --- | --- |
 | "Hey Miles" / "Miles, what's next" | the short *what now* update |
 | "Hey Miles, full briefing" / "…start over" | the whole morning briefing again |
+| "Hey Miles, goodnight" / "…evening wind down" | today's wind-down and tomorrow's first event |
 | "Hey Miles, stop" / "…be quiet" | stops talking |
 | "Hey Miles, mute" / "…unmute" | the mute toggle |
 
@@ -498,6 +507,7 @@ src/
       snapshot.ts   everything known about today, gathered once
       template.ts   the deterministic composer — always available
       now.ts        the short "what now" update for every open after the first
+      evening.ts    today's wind-down and tomorrow's first calendar event
       claude.ts     the Claude-authored composer — upgrade path, never required
   components/
     ArcReactor.tsx    generated SVG geometry, animated in CSS

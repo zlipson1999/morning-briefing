@@ -1,5 +1,9 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearCache } from "@/lib/cache";
+import { upsertEvents } from "@/lib/calendar";
 import { gatherSnapshot } from "@/lib/briefing/snapshot";
 
 /**
@@ -7,14 +11,20 @@ import { gatherSnapshot } from "@/lib/briefing/snapshot";
  * whole with only the local data filled in, because that is exactly the state
  * the briefing endpoint has to survive.
  */
-beforeEach(() => {
+let dir: string;
+
+beforeEach(async () => {
   clearCache();
   vi.stubGlobal("fetch", vi.fn(async () => new Response("upstream down", { status: 503 })));
+  dir = await fs.mkdtemp(path.join(os.tmpdir(), "mb-snapshot-"));
+  vi.stubEnv("CALENDAR_STORE", path.join(dir, "calendar.json"));
 });
 
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   clearCache();
+  await fs.rm(dir, { recursive: true, force: true });
 });
 
 const at = (hours: number, minutes = 0) => new Date(2026, 7, 21, hours, minutes);
@@ -26,6 +36,7 @@ describe("gatherSnapshot", () => {
     expect(snapshot.weather).toBeNull();
     expect(snapshot.commute).toBeNull();
     expect(snapshot.news).toEqual({ local: [], global: [], curatedLocal: false });
+    expect(snapshot.tomorrow).toBeNull();
     expect(snapshot.schedule.total).toBeGreaterThan(0);
     expect(snapshot.tasks.open).toBeGreaterThan(0);
   });
@@ -70,11 +81,38 @@ describe("gatherSnapshot", () => {
     expect(snapshot.tomorrow).toBeNull();
   });
 
-  it("fetches tomorrow's first event when asked", async () => {
+  /**
+   * The sample calendar is a demo, not the user's real tomorrow — presenting
+   * it as one would be exactly the kind of thing SourceNotice exists to
+   * prevent everywhere else, so the evening wind-down has to honor it too.
+   */
+  it("says nothing about tomorrow when the calendar is only sample data", async () => {
     const snapshot = await gatherSnapshot({ now: at(7), includeTomorrow: true });
-    // The sample calendar repeats identically on every date, so tomorrow's
-    // first event is the same standup as today's.
+    expect(snapshot.tomorrow).toBeNull();
+  });
+
+  it("fetches tomorrow's first real event when one is pushed", async () => {
+    const tomorrow = new Date(at(7).getTime() + 24 * 60 * 60_000);
+    tomorrow.setHours(9, 0, 0, 0);
+    const end = new Date(tomorrow.getTime() + 30 * 60_000);
+
+    await upsertEvents([
+      {
+        id: "e1",
+        title: "Dentist",
+        startIso: tomorrow.toISOString(),
+        endIso: end.toISOString(),
+        location: "",
+        attendees: [],
+        kind: "personal",
+        allDay: false,
+        cancelled: false,
+        updatedAt: Date.now(),
+      },
+    ]);
+
+    const snapshot = await gatherSnapshot({ now: at(7), includeTomorrow: true });
     expect(snapshot.tomorrow).not.toBeNull();
-    expect(snapshot.tomorrow?.firstEvent?.title).toBe("Standup — Platform");
+    expect(snapshot.tomorrow?.firstEvent?.title).toBe("Dentist");
   });
 });

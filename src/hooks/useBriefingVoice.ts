@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
+  automaticSpeakMode,
   hasBriefedToday,
   hasWoundDownToday,
   markBriefedToday,
@@ -293,18 +294,18 @@ export function useBriefingVoice() {
       startedRef.current = true;
 
       // An explicit mode wins; otherwise the replay button repeats whatever
-      // was last played, and the automatic open decides by the day's history:
-      // the morning briefing first, the wind-down once past 8pm, the short
-      // update for everything in between.
+      // was last played, and the automatic open decides by the day's history —
+      // see automaticSpeakMode for the actual rule (kept pure and tested
+      // there rather than inlined here).
       const mode: SpeakMode =
         options.mode ??
         (options.force
           ? modeRef.current
-          : !hasBriefedToday()
-            ? "morning"
-            : new Date().getHours() >= 20 && !hasWoundDownToday()
-              ? "evening"
-              : "now");
+          : automaticSpeakMode({
+              hour: new Date().getHours(),
+              morningPlayed: hasBriefedToday(),
+              eveningPlayed: hasWoundDownToday(),
+            }));
       modeRef.current = mode;
 
       setState("loading");

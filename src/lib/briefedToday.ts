@@ -59,6 +59,30 @@ export function markWoundDownToday(): void {
   }
 }
 
+export type AutomaticSpeakMode = "morning" | "now" | "evening";
+
+/**
+ * The once-per-open decision, kept pure so the day-boundary rules stay
+ * testable without a browser or a clock to fake.
+ *
+ * Past 8pm takes priority over the morning briefing entirely, even on a
+ * first open that never heard it: getting the full "Good morning" boot
+ * sequence and day rundown at 9pm reads as wrong, not thorough. The wind-down
+ * is what a first open that late actually wants.
+ */
+export function automaticSpeakMode({
+  hour,
+  morningPlayed,
+  eveningPlayed,
+}: {
+  hour: number;
+  morningPlayed: boolean;
+  eveningPlayed: boolean;
+}): AutomaticSpeakMode {
+  if (hour >= 20) return eveningPlayed ? "now" : "evening";
+  return morningPlayed ? "now" : "morning";
+}
+
 /**
  * What the last "what now" update said, and when.
  *
@@ -114,4 +138,9 @@ const subscribe = () => () => {};
 
 export function useBriefedToday(): boolean {
   return useSyncExternalStore(subscribe, hasBriefedToday, () => true);
+}
+
+/** Hydration-safe clock check used only to decide whether to show the morning boot. */
+export function useIsEvening(): boolean {
+  return useSyncExternalStore(subscribe, () => new Date().getHours() >= 20, () => false);
 }

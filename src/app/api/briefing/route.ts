@@ -1,5 +1,6 @@
 import { HOME_LOCATION } from "@/lib/config";
-import { claudeIsConfigured, composeWithClaude, type BriefingMode } from "@/lib/briefing/claude";
+import { claudeIsConfigured, composeWithClaude } from "@/lib/briefing/claude";
+import { briefingMode } from "@/lib/briefing/mode";
 import { composeEvening } from "@/lib/briefing/evening";
 import { composeNow } from "@/lib/briefing/now";
 import { gatherSnapshot } from "@/lib/briefing/snapshot";
@@ -37,8 +38,7 @@ export async function GET(request: Request) {
   const longitude = Number(params.get("lon") ?? HOME_LOCATION.longitude);
   const place = params.get("place") ?? HOME_LOCATION.label;
 
-  const rawMode = params.get("mode");
-  const mode: BriefingMode = rawMode === "now" ? "now" : rawMode === "evening" ? "evening" : "morning";
+  const mode = briefingMode(params.get("mode"));
 
   const snapshot = await gatherSnapshot({
     latitude: Number.isFinite(latitude) ? latitude : HOME_LOCATION.latitude,

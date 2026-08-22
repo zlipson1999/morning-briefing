@@ -1,5 +1,5 @@
 import { HOME_LOCATION, USER_NAME, WATCHLIST } from "@/lib/config";
-import { getTodaysEvents } from "@/lib/calendar";
+import { getTodaysCalendar, getTodaysEvents } from "@/lib/calendar";
 import { getInbox } from "@/lib/mail";
 import { getTasks } from "@/lib/tasks";
 import type { CalendarEvent } from "@/lib/data";
@@ -250,15 +250,22 @@ export async function gatherSnapshot({
 }
 
 /**
- * `getTodaysEvents` is written purely off the date it's passed — nothing in
+ * `getTodaysCalendar` is written purely off the date it's passed — nothing in
  * it reads the actual wall clock — so calling it with tomorrow's date just
  * works. No calendar-layer changes needed for this.
+ *
+ * Read through `getTodaysCalendar` rather than `getTodaysEvents` specifically
+ * so the sample day can be told apart from a real one: with nothing pushed or
+ * connected, "tomorrow" would otherwise be the same mock standup as today —
+ * presenting a demo as the user's actual plans.
  */
 async function tomorrowFirstEvent(now: Date): Promise<BriefingSnapshot["tomorrow"]> {
   try {
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60_000);
-    const events = await getTodaysEvents(tomorrow);
-    const first = [...events].sort((a, b) => toMinutes(a.start) - toMinutes(b.start))[0];
+    const calendar = await getTodaysCalendar(tomorrow);
+    if (calendar.source === "sample") return null;
+
+    const first = [...calendar.events].sort((a, b) => toMinutes(a.start) - toMinutes(b.start))[0];
 
     return {
       firstEvent: first ? { title: first.title, start: spoken(first.start), location: first.location } : null,
