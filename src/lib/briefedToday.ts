@@ -16,6 +16,30 @@ import { useSyncExternalStore } from "react";
 const KEY = "mb:briefed";
 const NOW_KEY = "mb:now";
 const EVENING_KEY = "mb:evening-briefed";
+const historyListeners = new Set<() => void>();
+
+function emitHistoryChange(): void {
+  for (const listener of historyListeners) listener();
+}
+
+/**
+ * Keep the once-daily state live in the current tab and in other open tabs.
+ * `storage` only fires in the *other* document, so the explicit emit in the
+ * marker functions below is what updates the tab that actually played audio.
+ */
+export function subscribeBriefingHistory(onChange: () => void): () => void {
+  historyListeners.add(onChange);
+
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === KEY || event.key === EVENING_KEY) emitHistoryChange();
+  };
+  if (typeof window !== "undefined") window.addEventListener("storage", onStorage);
+
+  return () => {
+    historyListeners.delete(onChange);
+    if (typeof window !== "undefined") window.removeEventListener("storage", onStorage);
+  };
+}
 
 function today(): string {
   const now = new Date();
@@ -40,6 +64,7 @@ export function markBriefedToday(): void {
   } catch {
     /* private mode — the preference just won't persist */
   }
+  emitHistoryChange();
 }
 
 export function hasEveningBriefedToday(): boolean {
@@ -56,6 +81,7 @@ export function markEveningBriefedToday(): void {
   } catch {
     /* private mode — the wind-down may replay on the next open */
   }
+  emitHistoryChange();
 }
 
 export type AutomaticBriefingMode = "morning" | "now" | "evening";
@@ -125,13 +151,11 @@ export function writeNowMemory(keys: string[]): void {
  * common case, and it means the boot overlay never renders for a frame
  * before being taken away again.
  */
-const subscribe = () => () => {};
-
 export function useBriefedToday(): boolean {
-  return useSyncExternalStore(subscribe, hasBriefedToday, () => true);
+  return useSyncExternalStore(subscribeBriefingHistory, hasBriefedToday, () => true);
 }
 
 /** Hydration-safe clock check used only to decide whether to show the morning boot. */
 export function useIsEvening(): boolean {
-  return useSyncExternalStore(subscribe, () => new Date().getHours() >= 20, () => false);
+  return useSyncExternalStore(() => () => {}, () => new Date().getHours() >= 20, () => false);
 }
