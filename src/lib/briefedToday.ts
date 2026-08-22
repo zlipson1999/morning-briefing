@@ -15,6 +15,7 @@ import { useSyncExternalStore } from "react";
 
 const KEY = "mb:briefed";
 const NOW_KEY = "mb:now";
+const EVENING_KEY = "mb:evening-briefed";
 
 function today(): string {
   const now = new Date();
@@ -38,6 +39,22 @@ export function markBriefedToday(): void {
     localStorage.setItem(KEY, today());
   } catch {
     /* private mode — the preference just won't persist */
+  }
+}
+
+export function hasEveningBriefedToday(): boolean {
+  try {
+    return localStorage.getItem(EVENING_KEY) === today();
+  } catch {
+    return false;
+  }
+}
+
+export function markEveningBriefedToday(): void {
+  try {
+    localStorage.setItem(EVENING_KEY, today());
+  } catch {
+    /* private mode — the wind-down may replay on the next open */
   }
 }
 
