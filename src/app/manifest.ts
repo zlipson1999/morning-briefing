@@ -16,6 +16,14 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: "any",
     background_color: "#08090c",
     theme_color: "#08090c",
-    icons: [{ src: "/icon.svg", type: "image/svg+xml", sizes: "any", purpose: "any" }],
+    // Safari is happy with the SVG alone; Android Chrome wants raster sizes,
+    // and without a maskable icon a Samsung launcher falls back to a generic
+    // letter tile rather than cropping this one to its squircle.
+    icons: [
+      { src: "/icon.svg", type: "image/svg+xml", sizes: "any", purpose: "any" },
+      { src: "/icon-192.png", type: "image/png", sizes: "192x192", purpose: "any" },
+      { src: "/icon-512.png", type: "image/png", sizes: "512x512", purpose: "any" },
+      { src: "/icon-maskable-512.png", type: "image/png", sizes: "512x512", purpose: "maskable" },
+    ],
   };
 }

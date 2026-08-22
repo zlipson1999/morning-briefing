@@ -31,8 +31,11 @@ cp .env.example .env.local        # Mac / Linux
 
 ## 3. Create the Google connection (free, ~5 minutes)
 
-This is what lets Miles read your real calendar, Gmail and tasks — read-only,
-straight from Google, nothing shared with anyone.
+This is what lets Miles read your real calendar, Gmail and tasks straight from
+Google, with nothing shared with anyone. Gmail stays read-only. Calendar and
+Tasks also allow writes — that is what lets you say "add a task to call the
+roofer" — but only ever behind a confirmation card, so Google's consent screen
+asking for edit access is expected, not a mistake.
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) and sign
    in. Project dropdown (top left) → **New Project** → name it `Miles` →
@@ -90,20 +93,37 @@ npm run start:tailscale
 2. Install the **Tailscale app** on the phone, sign into the *same* account.
    When iOS says Tailscale wants to add a VPN configuration, tap **Allow** —
    that prompt *is* Tailscale, not a request to buy something. Toggle it on.
-3. In the phone's Tailscale app, find your PC's name (like
-   `desktop-abc123`), then open in Safari:
+3. On the PC, once, so the phone gets a real HTTPS address:
 
+   ```bash
+   npm run serve:tailscale
    ```
-   http://<that-name>.<your-tailnet>.ts.net:3000
-   ```
 
-4. Share button → **Add to Home Screen** → **Add**. Miles now launches
-   full-screen from its own icon, from anywhere — as long as the PC is on.
+   Tailscale prints an `https://<machine>.<your-tailnet>.ts.net` address. Use
+   that rather than `http://…:3000`. The microphone and notifications only work
+   on a secure origin, so over plain HTTP the browser silently refuses them and
+   the features look broken when they are merely blocked.
 
-iPhone notes: no "Hey Miles" there (Safari has no speech recognition — the
-toggle hides itself), and if the voice sounds rough, set up Piper on the PC
-(`PIPER_BIN` / `PIPER_VOICE` in `.env.local`) so every device plays the same
-good voice.
+4. Open that address on the phone, then add it to the home screen. Miles
+   launches full-screen from its own icon, from anywhere — as long as the PC
+   is on.
+
+   - **iPhone (Safari):** Share button → **Add to Home Screen** → **Add**.
+   - **Android/Samsung (Chrome):** ⋮ menu → **Add to Home screen**.
+
+**iPhone notes.** No "Hey Miles" — Safari has no speech recognition, so the
+toggle hides itself.
+
+**Samsung and Android notes.** Use **Chrome**, not Samsung Internet: the voice
+features need the browser's speech recognition, which Chrome has and Samsung
+Internet cannot be relied on for. Miles hides the mic and wake-word controls
+when the browser lacks it, so the page still works — you just lose voice
+without being told why. Alerts are polled by the open page, not pushed, so
+they stop when Miles is closed; if you want them, exempt Miles from battery
+optimisation in Android settings and leave it open.
+
+If the voice sounds rough on any phone, set up Piper on the PC (`PIPER_BIN` /
+`PIPER_VOICE` in `.env.local`) so every device plays the same good voice.
 
 ## 7. Day to day
 
