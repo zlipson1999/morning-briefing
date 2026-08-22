@@ -14,6 +14,7 @@ function snapshot(overrides: Partial<BriefingSnapshot> = {}): BriefingSnapshot {
     portfolio: null,
     news: { local: [], global: [], curatedLocal: false },
     commute: null,
+    packages: [],
     tomorrow: null,
     ...overrides,
   };
@@ -324,5 +325,30 @@ describe("composeNow, on a second look", () => {
 
     expect(text).toContain("Priya needs you");
     expect(text).not.toContain("Marcus");
+  });
+});
+
+describe("composeNow, packages", () => {
+  it("mentions a package arriving today", () => {
+    const { text } = composeNow(
+      snapshot({ packages: [{ carrier: "Amazon", etaLabel: "Today", arrivingToday: true }] }),
+    );
+    expect(text).toContain("Your Amazon package is arriving today.");
+  });
+
+  it("stays quiet about a package arriving tomorrow — that's not \"now\"", () => {
+    const { text } = composeNow(
+      snapshot({ packages: [{ carrier: "UPS", etaLabel: "Tomorrow", arrivingToday: false }] }),
+    );
+    expect(text).not.toContain("UPS");
+  });
+
+  it("doesn't repeat itself on the next look", () => {
+    const withPackage = snapshot({
+      packages: [{ carrier: "Amazon", etaLabel: "Today", arrivingToday: true }],
+    });
+    const first = composeNow(withPackage);
+    const second = composeNow(withPackage, { said: first.keys });
+    expect(second.text).not.toContain("Amazon");
   });
 });

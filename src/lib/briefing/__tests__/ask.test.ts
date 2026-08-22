@@ -13,6 +13,7 @@ function snapshot(overrides: Partial<BriefingSnapshot> = {}): BriefingSnapshot {
     portfolio: null,
     news: { local: [], global: [], curatedLocal: false },
     commute: null,
+    packages: [],
     tomorrow: null,
     ...overrides,
   };

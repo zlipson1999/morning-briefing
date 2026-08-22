@@ -7,6 +7,7 @@ import { nextCommute, type Commute } from "@/lib/providers/commute";
 import { getNews } from "@/lib/providers/news";
 import { getWeather, type Weather } from "@/lib/providers/weather";
 import { readPortfolio } from "@/lib/providers/etrade";
+import { getPackages } from "@/lib/packages";
 
 /**
  * Everything known about today, gathered once.
@@ -70,6 +71,8 @@ export type BriefingSnapshot = {
     curatedLocal: boolean;
   };
   commute: Commute | null;
+  /** Packages currently in transit — empty unless Gmail is connected. */
+  packages: { carrier: string; etaLabel: string; arrivingToday: boolean }[];
   /**
    * Tomorrow's first event, for the evening wind-down. Only populated when
    * `includeTomorrow` is passed to `gatherSnapshot` — morning and now-brief
@@ -159,7 +162,7 @@ export async function gatherSnapshot({
     includeTomorrow ? tomorrowFirstEvent(now) : Promise.resolve(null),
   ]);
 
-  const [weather, portfolio, news, commute] = await Promise.all([
+  const [weather, portfolio, news, commute, packages] = await Promise.all([
     getWeather(latitude, longitude, place)
       .then((result) => result.value)
       .catch(() => null),
@@ -185,6 +188,9 @@ export async function gatherSnapshot({
       }))
       .catch(() => ({ local: [], global: [], curatedLocal: false })),
     nextCommute(events, nowMinutes, { latitude, longitude }).catch(() => null),
+    getPackages(now)
+      .then((list) => list.map(({ carrier, etaLabel, arrivingToday }) => ({ carrier, etaLabel, arrivingToday })))
+      .catch(() => []),
   ]);
 
   const openTasks = taskList.items.filter((task) => !task.done);
@@ -245,6 +251,7 @@ export async function gatherSnapshot({
     portfolio,
     news,
     commute,
+    packages,
     tomorrow,
   };
 }

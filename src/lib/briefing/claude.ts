@@ -41,8 +41,9 @@ Order, and what earns a sentence:
    at most, and only ones a person there would care about. Name the outlet.
 3. Tasks — what they owe, overdue first.
 4. Inbox — who is waiting on them, and what for.
-5. The shape of the day: how many events, what is next, where the free time sits.
-6. Weather, then the portfolio, then at most one item from the wider world.
+5. A package arriving today, if there is one — one brief mention, never more.
+6. The shape of the day: how many events, what is next, where the free time sits.
+7. Weather, then the portfolio, then at most one item from the wider world.
 
 Across all of it, prefer the connections a list of panels would never surface: an email
 that is preparation for a meeting later today, a task whose only free window is a

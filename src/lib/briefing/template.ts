@@ -49,7 +49,7 @@ export function portfolioLine(portfolio: BriefingSnapshot["portfolio"]): string 
 
 export function composeTemplate(snapshot: BriefingSnapshot): string {
   const lines: string[] = [];
-  const { userName, now, weather, schedule, inbox, tasks, portfolio, news, commute } = snapshot;
+  const { userName, now, weather, schedule, inbox, tasks, portfolio, news, commute, packages } = snapshot;
 
   lines.push(
     `${now.hour < 12 ? "Good morning" : now.hour < 18 ? "Good afternoon" : "Good evening"}, ` +
@@ -100,6 +100,17 @@ export function composeTemplate(snapshot: BriefingSnapshot): string {
         ? `, including flagged notes from ${important.map((m) => m.sender.split(" ")[0]).join(" and ")}.`
         : "."),
   );
+
+  // 3.5. Packages arriving today — a bonus signal, so it's brief and only
+  // shows up when there's actually something to say.
+  const arrivingToday = packages.filter((p) => p.arrivingToday);
+  if (arrivingToday.length) {
+    lines.push(
+      arrivingToday.length === 1
+        ? `Your ${arrivingToday[0].carrier} package is arriving today.`
+        : `${arrivingToday.length} packages arriving today, including ${arrivingToday[0].carrier}.`,
+    );
+  }
 
   // 4. The shape of the day.
   const upcoming = schedule.events.filter((event) => event.status !== "past");

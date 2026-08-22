@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Header from "@/components/Header";
 import LeaveBy from "@/components/LeaveBy";
+import PackagesStrip from "@/components/PackagesStrip";
 import CalendarPanel from "@/components/CalendarPanel";
 import EmailPanel from "@/components/EmailPanel";
 import TaskPanel from "@/components/TaskPanel";
@@ -16,6 +17,7 @@ export default function Home() {
     <main className="relative mx-auto flex min-h-dvh w-full max-w-[1700px] flex-col gap-6 px-5 py-8 sm:px-8 sm:py-9 lg:h-dvh lg:min-h-0 lg:overflow-hidden">
       <Header />
       <LeaveBy />
+      <PackagesStrip />
 
       {/* The grid reads in the same order the briefing speaks: what's
           happening near you, then what you owe, then who's waiting on you,
@@ -30,7 +32,7 @@ export default function Home() {
 
       <footer className="flex shrink-0 flex-wrap items-center justify-center gap-x-2 text-[11px] tracking-wide text-mist-400">
         <span>
-          Calendar, tasks and email are pushed in from Zapier · news, weather, commute and
+          Calendar, tasks and email connect to Google or Zapier · news, weather, commute and
           portfolio are live
         </span>
         <span aria-hidden>·</span>

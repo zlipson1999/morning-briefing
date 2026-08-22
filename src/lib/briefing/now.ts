@@ -80,7 +80,7 @@ function openingLine(snapshot: BriefingSnapshot): string {
  * it should be said. Suppression happens above; this only decides what's true.
  */
 function notableNow(snapshot: BriefingSnapshot, context: NowContext): Omit<NowFact, "fresh">[] {
-  const { schedule, inbox, tasks, commute, weather, now } = snapshot;
+  const { schedule, inbox, tasks, commute, weather, packages, now } = snapshot;
   const facts: Omit<NowFact, "fresh">[] = [];
   const since = context.since ?? null;
 
@@ -179,6 +179,19 @@ function notableNow(snapshot: BriefingSnapshot, context: NowContext): Omit<NowFa
       text: isSevere(weather.code)
         ? `${weather.condition} outside — worth knowing before you drive.`
         : `${weather.precipChance} percent chance of rain — take something.`,
+    });
+  }
+
+  // 6. A package arriving today. Tomorrow's isn't urgent enough for "now".
+  const today = packages.filter((p) => p.arrivingToday);
+  if (today.length) {
+    facts.push({
+      key: `packages:${today.map((p) => p.carrier).join("|")}`,
+      stage: String(today.length),
+      text:
+        today.length === 1
+          ? `Your ${today[0].carrier} package is arriving today.`
+          : `${today.length} packages arriving today, including ${today[0].carrier}.`,
     });
   }
 

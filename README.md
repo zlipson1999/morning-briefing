@@ -311,14 +311,15 @@ re-raise identically. The keys come back on `X-Briefing-Keys` and go out again
 as `?said=`; `?since=` carries the timestamp.
 
 The boot sequence is once a day too. A start-up animation you've already
-watched is a gate, not a flourish. `GET /api/briefing?mode=now` is the same
-thing over HTTP, and the replay button repeats whichever one you last heard.
+watched is a gate, not a flourish. `GET /api/briefing?mode=now` and
+`?mode=evening` are the same three briefings over HTTP, and the replay button
+repeats whichever one you last heard.
 
 Both follow the same order: **local news, then tasks, then the inbox**, then
-the shape of the day, then weather, the portfolio, and at most one item from
-the wider world. The single exception is a leave-by time inside forty-five
-minutes, which jumps to the front — "you should have left fourteen minutes
-ago" is not a sixth sentence.
+a package arriving today if there is one, then the shape of the day, then
+weather, the portfolio, and at most one item from the wider world. The single
+exception is a leave-by time inside forty-five minutes, which jumps to the
+front — "you should have left fourteen minutes ago" is not a sixth sentence.
 
 The second is strictly an upgrade path. No key, a failed call, or a refusal
 all fall back to the first, so the endpoint has no state where you get
@@ -332,6 +333,46 @@ bill a new one.
 
 `?format=json` returns the snapshot itself, for anything that would rather
 render the data than hear it.
+
+### Ask Miles anything
+
+`GET /api/ask?q=<question>` answers one question, grounded in the exact same
+`BriefingSnapshot` the briefing reads — "how's NVDA doing", "when's my next
+thing with Sofia", anything about today. It's how "Hey Miles" handles
+everything that isn't one of its recognised commands.
+
+There's no deterministic floor here on purpose: a freeform question genuinely
+needs a model to parse. Without `ANTHROPIC_API_KEY` the endpoint still
+answers — honestly, saying it needs a key — rather than guessing at what was
+asked. `/api/ask/audio` speaks the answer, the same way `/api/briefing/audio`
+does.
+
+### The week ahead
+
+`GET /api/week` (and `/api/week/audio`) describes the shape of the next seven
+days — which are heavy, which are wide open — by asking the calendar for each
+day in parallel and comparing event counts. Deterministic and free: this is
+structured data, not a judgement call, so it needs no model and works with no
+key. "Hey Miles, week ahead" is the voice version; a good moment to ask is
+Sunday night.
+
+### Package radar
+
+The mail panel already polls Gmail read-only; package radar asks it one more
+question, with its own search (`PACKAGES_SEARCH`, default matches the major
+carriers plus subjects like "shipped" or "out for delivery") so shipping
+confirmations — rarely flagged important, often already read — aren't missed
+by the inbox search. `GET /api/packages` returns everything currently in
+transit; a banner appears above the panels only when something is arriving
+**today**, the same way leave-by only appears when there's somewhere to
+drive.
+
+Carrier and delivery date are read heuristically from the subject and
+snippet — best-effort, not a tracking-number integration. A message that
+doesn't look like a real shipping update is left off rather than guessed at,
+and delivered packages drop off the list once they've arrived. With nothing
+connected this returns an empty list rather than sample data — a fabricated
+package would be a strange thing to demo.
 
 ## Is any of this actually working?
 
@@ -401,18 +442,24 @@ With listening enabled — the **Hey Miles** toggle in the header — the tab
 listens for its name through the browser's own speech recognition. Chrome and
 Edge ship it; Firefox doesn't, and there the toggle simply doesn't render.
 
-Say the name and it answers with the short update. A few phrasings do more:
+A few phrasings are recognised outright:
 
 | You say | Miles does |
 | --- | --- |
-| "Hey Miles" / "Miles, what's next" | the short *what now* update |
+| "Hey Miles" (nothing after the name) | the short *what now* update |
 | "Hey Miles, full briefing" / "…start over" | the whole morning briefing again |
-| "Hey Miles, goodnight" / "…evening wind down" | today's wind-down and tomorrow's first event |
+| "Hey Miles, goodnight" / "…how did today go" | today's wind-down and tomorrow's first event |
+| "Hey Miles, week ahead" / "…this week" | the shape of the coming week |
 | "Hey Miles, stop" / "…be quiet" | stops talking |
 | "Hey Miles, mute" / "…unmute" | the mute toggle |
 
-Anything it doesn't recognise falls through to the short update — answering
-*something* to your name matters more than parsing precisely.
+**Anything else with real content is a question.** "Hey Miles, how's NVDA
+doing" or "…when's my next thing with Sofia" goes to Claude, grounded in the
+same data every other composer reads, and the answer is spoken back — one to
+three sentences, only from what's actually in your day. This needs
+`ANTHROPIC_API_KEY`; without one, asking says so honestly rather than
+guessing at an answer. Only a bare "Hey Miles" with nothing after it means the
+short update, since that's what asking for nothing means.
 
 Three honest constraints. It's opt-in and persisted, because a dashboard must
 never turn on the microphone by itself. It only listens while the tab is open,
@@ -503,16 +550,20 @@ src/
     tasks/          Zapier-fed task list, sorted overdue-first
     mail/           Zapier-fed inbox, filtered upstream
     tts/            server-side speech: Piper or ElevenLabs, cached per briefing
+    packages.ts     heuristic shipping-mail classifier for the package radar
     briefing/
       snapshot.ts   everything known about today, gathered once
       template.ts   the deterministic composer — always available
       now.ts        the short "what now" update for every open after the first
       evening.ts    today's wind-down and tomorrow's first calendar event
+      week.ts       the coming week's shape — deterministic, no key needed
+      ask.ts        freeform Q&A over the snapshot — Claude-only, no floor
       claude.ts     the Claude-authored composer — upgrade path, never required
   components/
     ArcReactor.tsx    generated SVG geometry, animated in CSS
     BootSequence.tsx  start-up overlay, skippable
     LeaveBy.tsx       the walk-out-the-door banner
+    PackagesStrip.tsx the "arriving today" banner
     SourceNotice.tsx  says when a panel is on sample data or a stale push
     VoiceProvider.tsx owns the boot overlay and the speech session
     WeatherStrip.tsx  header summary; click for the full forecast
@@ -595,7 +646,12 @@ The suite covers the places bugs actually hide:
 - **The wake word** — matched against what recognition actually produces:
   comma-happy greetings, the name mid-utterance, and near-misses ("forty miles
   away", "smiles") that must not trigger it; plus the command grammar and its
-  fall-through to the short update.
+  fall-through to a freeform question when nothing else matches.
+- **Package radar** — carrier and status detection per major carrier, ETA
+  parsing (today/tomorrow/weekday/month-day), out-for-delivery defaulting to
+  today with no explicit date, delivered packages dropped from the list, and
+  `getPackages()` returning an empty list rather than sample data when
+  nothing's connected.
 - **Ingest auth** — bearer and header forms, a near-miss token rejected on
   length before comparison, and everything refused when no token is set.
 - **News ranking** — that a model's output is validated rather than trusted:

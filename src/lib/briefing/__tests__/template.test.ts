@@ -13,6 +13,7 @@ function snapshot(overrides: Partial<BriefingSnapshot> = {}): BriefingSnapshot {
     portfolio: null,
     news: { local: [], global: [], curatedLocal: false },
     commute: null,
+    packages: [],
     tomorrow: null,
     ...overrides,
   };
@@ -270,5 +271,35 @@ describe("composeTemplate", () => {
       }),
     );
     expect(text).toContain("3 unread emails, including flagged notes from Priya and Sofia.");
+  });
+
+});
+
+describe("composeTemplate, packages", () => {
+  it("mentions a single package arriving today", () => {
+    const text = composeTemplate(
+      snapshot({ packages: [{ carrier: "Amazon", etaLabel: "Today", arrivingToday: true }] }),
+    );
+    expect(text).toContain("Your Amazon package is arriving today.");
+  });
+
+  it("counts multiple packages arriving today", () => {
+    const text = composeTemplate(
+      snapshot({
+        packages: [
+          { carrier: "Amazon", etaLabel: "Today", arrivingToday: true },
+          { carrier: "UPS", etaLabel: "Today", arrivingToday: true },
+        ],
+      }),
+    );
+    expect(text).toContain("2 packages arriving today, including Amazon.");
+  });
+
+  it("says nothing when nothing is arriving today", () => {
+    const text = composeTemplate(
+      snapshot({ packages: [{ carrier: "UPS", etaLabel: "Tomorrow", arrivingToday: false }] }),
+    );
+    expect(text).not.toContain("UPS");
+    expect(text).not.toContain("package");
   });
 });

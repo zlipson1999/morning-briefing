@@ -11,5 +11,5 @@ export {
   GOOGLE_STATE_COOKIE,
 } from "./auth";
 export { googleCalendarToday, mapGoogleEvent } from "./calendar";
-export { googleInbox, mapGmailMessage, gmailSearch } from "./gmail";
+export { googleInbox, mapGmailMessage, gmailSearch, googlePackageMail, packagesSearch } from "./gmail";
 export { googleTasks, mapGoogleTask } from "./tasks";
