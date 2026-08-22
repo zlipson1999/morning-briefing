@@ -1,4 +1,5 @@
 import { endSentence } from "./prose";
+import { recentEmailDigest } from "./emailDigest";
 import type { BriefingSnapshot } from "./snapshot";
 
 /**
@@ -163,11 +164,7 @@ function notableNow(snapshot: BriefingSnapshot, context: NowContext): Omit<NowFa
     facts.push({
       key: `mail:${arrivedSince.map((message) => message.sender).join("|")}`,
       stage: String(arrivedSince.length),
-      text:
-        arrivedSince.length === 1
-          ? `${arrivedSince[0].sender} needs you: ${endSentence(arrivedSince[0].subject)}`
-          : `${arrivedSince.length} flagged messages since you last looked, including ` +
-            `${arrivedSince[0].sender}.`,
+      text: recentEmailDigest(arrivedSince),
     });
   }
 
@@ -241,3 +238,4 @@ function isRecent(receivedAt: number): boolean {
 function isSevere(code: number): boolean {
   return code >= 95 || code === 65 || code === 75 || code === 82 || code === 86 || code === 67;
 }
+
