@@ -138,6 +138,19 @@ say *"Hey Miles, goodnight"* whenever you want to hear it.
 - **E*TRADE** — real positions and cost basis instead of watchlist quotes.
   See the README; expect to reconnect each morning (their tokens expire
   nightly, not ours).
+- **Run it on the phone alone** — no PC, no Tailscale, nothing on the network.
+  Install [Termux](https://f-droid.org/packages/com.termux/) from F-Droid, then:
+
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/zlipson1999/morning-briefing/main/scripts/setup-android.sh -o setup-android.sh
+  bash setup-android.sh
+  ```
+
+  An eight-stage wizard: Debian inside Termux (Next.js ships no Android
+  binary, so it needs a glibc userland), Node 22, the clone, your credentials,
+  the build, and Miles answering on `http://localhost:3000`. Being localhost,
+  it is a secure origin, so the microphone and notifications work with no HTTPS
+  to arrange. Expect a warm phone during the build.
 - **Ask Miles chat** — private follow-up questions answered on your own PC.
   Run `npm run setup:local-llm` (`npm run setup:local-llm:unix` on Mac or
   Linux) once: it installs Ollama, starts it, and pulls the model. Nothing

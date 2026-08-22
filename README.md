@@ -449,6 +449,15 @@ shape):
    page scrolls normally, and the theme colour and `viewport-fit` handle the
    status bar and the notch.
 
+### Or run it on the phone alone
+
+Miles can also run entirely on an Android phone, with the PC switched off:
+`scripts/setup-android.sh` installs Debian inside Termux — Next.js ships no
+Android binary, so a glibc userland is the requirement — then Node 22, the
+build, and the server on `http://localhost:3000`. `SETUP.md` has the one
+command that starts it. iPhone cannot do this; there is no equivalent to
+Termux.
+
 No Tailscale yet and just want a first look? On the same Wi-Fi as the PC,
 `npm run build && npm run start:tailscale`, find the PC's local IP
 (`ipconfig` / `ifconfig`), and open `http://<that-ip>:3000` on the phone.
