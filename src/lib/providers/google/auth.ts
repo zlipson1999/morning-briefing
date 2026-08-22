@@ -12,16 +12,16 @@ import { fetchWithTimeout } from "@/lib/cache";
  * under SESSION_SECRET and written to disk, so it survives restarts, never
  * leaves this machine, and is ciphertext if anything else reads the file.
  *
- * Everything is read-only by scope. Miles can see your day; it cannot send
- * mail, edit events or complete tasks, because it never asked to.
+ * Gmail remains read-only. Calendar events and Tasks are writable, but the
+ * app exposes those writes only behind an explicit confirmation card.
  */
 
 export const GOOGLE_STATE_COOKIE = "mb_google_state";
 
 export const GOOGLE_SCOPES = [
-  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/gmail.readonly",
-  "https://www.googleapis.com/auth/tasks.readonly",
+  "https://www.googleapis.com/auth/tasks",
 ].join(" ");
 
 export function googleCredentials(): { clientId: string; clientSecret: string } | null {
@@ -142,3 +142,25 @@ export async function googleGet(url: string): Promise<Record<string, unknown> | 
   if (!res.ok) throw new Error(`Google responded ${res.status}`);
   return res.json();
 }
+
+export async function googleRequest(
+  url: string,
+  method: "POST" | "PATCH",
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const token = await getAccessToken();
+  if (!token) throw new Error("Reconnect Google to grant action access.");
+  const res = await fetchWithTimeout(url, {
+    method,
+    timeoutMs: 8000,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401 || res.status === 403) {
+    accessCache = null;
+    throw new Error("Reconnect Google to grant Calendar and Tasks write access.");
+  }
+  if (!res.ok) throw new Error(`Google action responded ${res.status}`);
+  return res.json();
+}
+
