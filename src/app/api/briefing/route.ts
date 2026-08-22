@@ -1,8 +1,10 @@
-import { USER_NAME, HOME_LOCATION } from "@/lib/config";
-import { events, emails, initialTasks } from "@/lib/data";
-import { getNews } from "@/lib/providers/news";
-import { getWeather } from "@/lib/providers/weather";
-import { readPortfolio } from "@/lib/providers/etrade";
+import { HOME_LOCATION } from "@/lib/config";
+import { claudeIsConfigured, composeWithClaude } from "@/lib/briefing/claude";
+import { composeEvening } from "@/lib/briefing/evening";
+import { briefingMode } from "@/lib/briefing/mode";
+import { composeNow, nowKeys } from "@/lib/briefing/now";
+import { gatherSnapshot } from "@/lib/briefing/snapshot";
+import { composeTemplate } from "@/lib/briefing/template";
 
 export const dynamic = "force-dynamic";
 
@@ -14,98 +16,69 @@ export const dynamic = "force-dynamic";
  * without this app depending on that assistant, or vice versa.
  *
  *   curl -s localhost:3000/api/briefing | piper --model en_US-lessac-medium
+ *
+ * With ANTHROPIC_API_KEY set, Claude writes it: same data, but read across
+ * rather than listed. Without one — or if that call fails — the deterministic
+ * composer answers instead, so the endpoint has no failure mode where you get
+ * nothing. `X-Briefing-Author` says which one you got.
+ *
+ * `?mode=now` returns the short update the app plays on every open after the
+ * first one today: the time, what's running or next, and only the mail and
+ * tasks close enough to the clock to matter. The morning briefing already
+ * covered the day, so this one doesn't.
+ * `?mode=evening` returns the once-daily wind-down and tomorrow's first event.
+ *
+ * `?format=json` returns the underlying snapshot instead of prose, for
+ * anything that would rather render the data than hear it.
  */
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const latitude = Number(url.searchParams.get("lat") ?? HOME_LOCATION.latitude);
-  const longitude = Number(url.searchParams.get("lon") ?? HOME_LOCATION.longitude);
-  const place = url.searchParams.get("place") ?? HOME_LOCATION.label;
+  const params = new URL(request.url).searchParams;
 
-  const lines: string[] = [];
-  const now = new Date();
-  const hour = now.getHours();
+  const latitude = Number(params.get("lat") ?? HOME_LOCATION.latitude);
+  const longitude = Number(params.get("lon") ?? HOME_LOCATION.longitude);
+  const place = params.get("place") ?? HOME_LOCATION.label;
 
-  lines.push(
-    `${hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"}, ${USER_NAME}. ` +
-      `It's ${now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}.`,
-  );
+  const snapshot = await gatherSnapshot({
+    latitude: Number.isFinite(latitude) ? latitude : HOME_LOCATION.latitude,
+    longitude: Number.isFinite(longitude) ? longitude : HOME_LOCATION.longitude,
+    place,
+  });
 
-  // Every section is optional: one dead upstream shouldn't cost you the brief.
-  try {
-    const { value: w } = await getWeather(latitude, longitude, place);
-    lines.push(
-      `In ${w.place} it's ${w.tempF} degrees and ${w.condition.toLowerCase()}, ` +
-        `high of ${w.highF}, low of ${w.lowF}` +
-        `${w.precipChance >= 25 ? `, with a ${w.precipChance} percent chance of rain` : ""}.`,
-    );
-  } catch {
-    /* skip weather */
+  if (params.get("format") === "json") {
+    return Response.json(snapshot, { headers: { "Cache-Control": "no-store" } });
   }
 
-  const nowMinutes = hour * 60 + now.getMinutes();
-  const toMinutes = (hhmm: string) => {
-    const [h, m] = hhmm.split(":").map(Number);
-    return h * 60 + m;
-  };
-  const upcoming = events.filter((e) => toMinutes(e.end) > nowMinutes);
+  const mode = briefingMode(params.get("mode"));
 
-  if (upcoming.length === 0) {
-    lines.push("Your calendar is clear for the rest of the day.");
-  } else {
-    const next = upcoming[0];
-    const spoken = (hhmm: string) => {
-      const [h, m] = hhmm.split(":").map(Number);
-      const suffix = h < 12 ? "a.m." : "p.m.";
-      const hour12 = h % 12 === 0 ? 12 : h % 12;
-      return m === 0 ? `${hour12} ${suffix}` : `${hour12} ${m} ${suffix}`;
-    };
-    lines.push(
-      `You have ${upcoming.length} ${upcoming.length === 1 ? "event" : "events"} left today. ` +
-        `Next up is ${next.title} at ${spoken(next.start)}.`,
-    );
-  }
+  // What the caller was told last time, so an update can skip what hasn't
+  // changed rather than repeating itself twenty minutes later.
+  const since = Number(params.get("since"));
+  const context =
+    mode === "now"
+      ? {
+          since: Number.isFinite(since) && since > 0 ? since : null,
+          said: (params.get("said") ?? "").split(",").filter(Boolean),
+        }
+      : {};
 
-  const important = emails.filter((e) => e.important);
-  lines.push(
-    `${emails.length} unread ${emails.length === 1 ? "email" : "emails"}` +
-      (important.length
-        ? `, including flagged notes from ${important.map((e) => e.sender.split(" ")[0]).join(" and ")}.`
-        : "."),
-  );
+  const written =
+    params.get("author") === "template" ? null : await composeWithClaude(snapshot, mode, context);
 
-  const open = initialTasks.filter((t) => !t.done);
-  const high = open.filter((t) => t.priority === "high");
-  if (open.length) {
-    lines.push(
-      `${open.length} open ${open.length === 1 ? "task" : "tasks"}` +
-        (high.length ? `. Top priority: ${high[0].title}.` : "."),
-    );
-  }
+  const deterministic = mode === "now" ? composeNow(snapshot, context) : null;
+  const text =
+    written ??
+    deterministic?.text ??
+    (mode === "evening" ? composeEvening(snapshot) : composeTemplate(snapshot));
+  const keys = mode === "now" ? (deterministic?.keys ?? nowKeys(snapshot, context)) : [];
 
-  try {
-    const { portfolio, state } = await readPortfolio();
-    if (state.connected) {
-      const dir = portfolio.dayChange >= 0 ? "up" : "down";
-      lines.push(
-        `Your portfolio is ${dir} ${Math.abs(portfolio.dayChangePct).toFixed(1)} percent today, ` +
-          `at ${Math.round(portfolio.totalValue).toLocaleString()} dollars.`,
-      );
-    }
-  } catch {
-    /* skip portfolio */
-  }
-
-  try {
-    const { value: news } = await getNews(place);
-    const top = [...news.global, ...news.local].slice(0, 3);
-    if (top.length) {
-      lines.push("In the news: " + top.map((h) => h.title).join(". ") + ".");
-    }
-  } catch {
-    /* skip news */
-  }
-
-  return new Response(lines.join("\n\n"), {
-    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+  return new Response(text, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Briefing-Author": written ? "claude" : claudeIsConfigured() ? "template-fallback" : "template",
+      "X-Briefing-Mode": mode,
+      // Feed these back as ?said= on the next update.
+      ...(keys.length ? { "X-Briefing-Keys": keys.join(",") } : {}),
+    },
   });
 }

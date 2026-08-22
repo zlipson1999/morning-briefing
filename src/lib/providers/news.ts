@@ -1,6 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
 import { cached, fetchWithTimeout } from "@/lib/cache";
-import { GLOBAL_FEEDS, localFeedsFor, type Feed } from "@/lib/feeds";
+import { GLOBAL_FEEDS, googleNewsFeedFor, localFeedsFor, type Feed } from "@/lib/feeds";
+import { rankByImportance } from "./news-rank";
 
 export type Headline = {
   id: string;
@@ -15,6 +16,12 @@ export type NewsBundle = {
   local: Headline[];
   global: Headline[];
   place: string;
+  /**
+   * True when the local list was ordered by importance rather than by
+   * timestamp. The panel says so, because otherwise a better sort is
+   * indistinguishable from the old one.
+   */
+  curatedLocal: boolean;
 };
 
 const parser = new XMLParser({
@@ -129,7 +136,6 @@ export async function getNews(place: string): Promise<{
   stale: boolean;
   degraded: string[];
 }> {
-  const localFeeds = localFeedsFor(place);
   const degraded: string[] = [];
 
   const { value, stale } = await cached(`news:${place}`, { ttlMs: 10 * 60_000 }, async () => {
@@ -147,16 +153,30 @@ export async function getNews(place: string): Promise<{
       return items;
     };
 
-    const [local, global] = await Promise.all([settle(localFeeds), settle(GLOBAL_FEEDS)]);
+    const [curated, global] = await Promise.all([
+      settle(localFeedsFor(place)),
+      settle(GLOBAL_FEEDS),
+    ]);
+
+    // A curated newsroom that changed its feed URL used to mean an empty
+    // "Near me" tab with no explanation. Fall back to the geo feed instead:
+    // staler, but local news beats no local news.
+    const local = curated.length > 0 ? curated : await settle([googleNewsFeedFor(place)]);
 
     if (local.length === 0 && global.length === 0) {
       throw new Error("Every news source failed");
     }
 
+    // Deduped and recency-ordered first, so the ranker sees a clean, bounded
+    // candidate list — and so the fallback is already the old behaviour.
+    const localCandidates = rank(local, 24);
+    const ranked = await rankByImportance(localCandidates, place, 6);
+
     return {
-      local: rank(local, 6),
+      local: ranked.headlines,
       global: rank(global, 8),
       place,
+      curatedLocal: ranked.curated,
     } satisfies NewsBundle;
   });
 

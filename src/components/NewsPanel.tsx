@@ -43,7 +43,7 @@ export default function NewsPanel({ className }: { className?: string }) {
       icon={<NewspaperIcon className="size-full" />}
       accent="#5cc8de"
       meta={bundle?.place}
-      delay={240}
+      delay={60}
       className={className}
       loading={state.status === "loading"}
       error={state.status === "error" ? state.message : null}
@@ -51,7 +51,7 @@ export default function NewsPanel({ className }: { className?: string }) {
       stale={state.status === "ready" && state.stale}
       degraded={state.status === "ready" ? state.degraded : undefined}
     >
-      <div className="mb-2 flex gap-1 px-3">
+      <div className="mb-2 flex items-center gap-1 px-3">
         {(["local", "global"] as const).map((option) => (
           <button
             key={option}
@@ -67,6 +67,14 @@ export default function NewsPanel({ className }: { className?: string }) {
             {option === "local" ? "Near me" : "World"}
           </button>
         ))}
+        {scope === "local" && bundle?.curatedLocal && (
+          <span
+            className="ml-auto rounded bg-[#5cc8de]/12 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-[#5cc8de] uppercase"
+            title="Ordered by what matters to someone here, not by what was published most recently."
+          >
+            Ranked
+          </span>
+        )}
       </div>
 
       {items.length === 0 ? (
@@ -99,7 +107,7 @@ export default function NewsPanel({ className }: { className?: string }) {
                   <span className="font-medium text-mist-300">{item.source}</span>
                   {item.publishedAt && (
                     <>
-                      <span className="text-ink-600">·</span>
+                      <span className="text-mist-400/60" aria-hidden>·</span>
                       <span className={isStale(item.publishedAt) ? "text-mail" : ""}>
                         {age(item.publishedAt)}
                       </span>

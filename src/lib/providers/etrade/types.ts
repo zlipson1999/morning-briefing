@@ -17,9 +17,17 @@ export type Portfolio = {
   dayChangePct: number;
   positions: Position[];
   /** How this data was obtained, so the UI can be honest about it. */
-  mode: "mock" | "sandbox" | "live";
+  mode: "watchlist" | "mock" | "sandbox" | "live";
+  /** Symbols that failed while others succeeded. */
+  degraded?: string[];
 };
 
 export type ConnectionState =
   | { connected: true; mode: Portfolio["mode"] }
-  | { connected: false; mode: Portfolio["mode"]; reason: "no-credentials" | "not-connected" | "expired" };
+  | {
+      connected: false;
+      mode: Portfolio["mode"];
+      reason: "no-credentials" | "not-connected" | "expired";
+      /** True when the numbers on screen are real quotes, just not your account. */
+      live: boolean;
+    };

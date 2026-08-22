@@ -2,7 +2,10 @@
 
 import Panel from "./Panel";
 import { CalendarIcon, PinIcon, UsersIcon } from "./icons";
-import { events, type CalendarEvent } from "@/lib/data";
+import type { CalendarEvent } from "@/lib/data";
+import type { TodaysCalendar } from "@/lib/calendar";
+import SourceNotice from "./SourceNotice";
+import { usePanelData } from "@/hooks/usePanelData";
 import { useClock } from "@/lib/useClock";
 
 const KIND_COLOR: Record<CalendarEvent["kind"], string> = {
@@ -46,6 +49,12 @@ export default function CalendarPanel({ className }: { className?: string }) {
       ? null
       : new Date(nowMs).getHours() * 60 + new Date(nowMs).getMinutes();
 
+  // Refreshed on a slow timer: a Zap pushing a new event should show up
+  // without a reload, but a calendar doesn't change minute to minute.
+  const state = usePanelData<TodaysCalendar>("/api/calendar", { refreshMs: 5 * 60_000 });
+  const calendar = state.status === "ready" ? state.data : null;
+  const events = calendar?.events ?? [];
+
   const remaining =
     minutesNow === null
       ? events.length
@@ -61,10 +70,29 @@ export default function CalendarPanel({ className }: { className?: string }) {
       title="Today's schedule"
       icon={<CalendarIcon className="size-full" />}
       accent="#7c8cff"
-      meta={`${remaining} left of ${events.length}`}
-      delay={60}
+      meta={events.length ? `${remaining} left of ${events.length}` : undefined}
+      delay={240}
       className={className}
+      loading={state.status === "loading"}
+      error={state.status === "error" ? state.message : null}
+      onRetry={state.refresh}
+      stale={state.status === "ready" && state.stale}
     >
+      {calendar && (
+        <SourceNotice
+          source={calendar.source}
+          syncedAt={calendar.syncedAt}
+          accent="#7c8cff"
+          noun="day"
+          endpoint="/api/calendar/ingest"
+          canConnectGoogle={calendar.canConnectGoogle}
+        />
+      )}
+
+      {calendar?.source === "zapier" && events.length === 0 && (
+        <p className="px-4 py-6 text-sm text-mist-400">Nothing on the calendar today.</p>
+      )}
+
       <ul className="flex flex-col gap-1">
         {events.map((e) => {
           const accent = KIND_COLOR[e.kind];

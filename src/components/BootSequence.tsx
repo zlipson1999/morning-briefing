@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import ArcReactor from "./ArcReactor";
-import { USER_NAME } from "@/lib/config";
+import { ASSISTANT_NAME, ASSISTANT_TAGLINE, USER_NAME } from "@/lib/config";
 import type { VoiceState } from "@/hooks/useBriefingVoice";
 
 const STEPS = [
-  "Powering arc reactor",
+  "Waking Miles",
   "Syncing calendar and inbox",
   "Pulling market positions",
   "Scanning wire services",
@@ -79,7 +79,10 @@ export default function BootSequence({
 
       <div className="flex min-h-[5.5rem] flex-col items-center gap-2 px-6 text-center">
         <p className="font-mono text-[11px] tracking-[0.34em] text-[#5cc8de] uppercase">
-          Morning Briefing
+          {ASSISTANT_NAME}
+        </p>
+        <p className="font-mono text-[9px] tracking-[0.22em] text-mist-400 uppercase">
+          {ASSISTANT_TAGLINE}
         </p>
 
         <ul className="flex flex-col items-center gap-1">
