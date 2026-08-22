@@ -20,6 +20,7 @@ function snapshot(overrides: Partial<BriefingSnapshot> = {}): BriefingSnapshot {
 
 describe("composeTemplate", () => {
   it("greets by the hour", () => {
+    expect(composeTemplate(snapshot({ now: { ...snapshot().now, hour: 1 } }))).toMatch(/^Good evening/);
     expect(composeTemplate(snapshot())).toMatch(/^Good morning, Zach\./);
     expect(composeTemplate(snapshot({ now: { ...snapshot().now, hour: 14 } }))).toMatch(/^Good afternoon/);
     expect(composeTemplate(snapshot({ now: { ...snapshot().now, hour: 21 } }))).toMatch(/^Good evening/);
@@ -283,3 +284,4 @@ describe("composeTemplate", () => {
     expect(text).toContain("3 unread emails, including flagged notes from Priya and Sofia.");
   });
 });
+
