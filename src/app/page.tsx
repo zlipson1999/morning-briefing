@@ -6,6 +6,7 @@ import EmailPanel from "@/components/EmailPanel";
 import TaskPanel from "@/components/TaskPanel";
 import NewsPanel from "@/components/NewsPanel";
 import PortfolioPanel from "@/components/PortfolioPanel";
+import ChatPanel from "@/components/ChatPanel";
 
 export default function Home() {
   return (
@@ -38,6 +39,8 @@ export default function Home() {
           health
         </Link>
       </footer>
+      <ChatPanel />
     </main>
   );
 }
+
