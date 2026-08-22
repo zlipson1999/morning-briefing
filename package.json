@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "dev:tailscale": "next dev -H 0.0.0.0",
     "start:tailscale": "next start -H 0.0.0.0",
-    "serve:tailscale": "tailscale serve --bg 3000"
+    "serve:tailscale": "tailscale serve --bg 3000",
+    "startup:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows-startup.ps1",
+    "startup:remove": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/remove-windows-startup.ps1"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
