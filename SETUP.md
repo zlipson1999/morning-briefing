@@ -146,11 +146,19 @@ say *"Hey Miles, goodnight"* whenever you want to hear it.
   bash setup-android.sh
   ```
 
-  An eight-stage wizard: Debian inside Termux (Next.js ships no Android
-  binary, so it needs a glibc userland), Node 22, the clone, your credentials,
-  the build, and Miles answering on `http://localhost:3000`. Being localhost,
-  it is a secure origin, so the microphone and notifications work with no HTTPS
-  to arrange. Expect a warm phone during the build.
+  A nine-stage wizard: Debian inside Termux (Next.js ships no Android binary,
+  so it needs a glibc userland), Node 22, the clone, your credentials, the
+  build, optional on-device chat, and Miles answering on
+  `http://localhost:3000`. Being localhost, it is a secure origin, so the
+  microphone and notifications work with no HTTPS to arrange. Expect a warm
+  phone during the build.
+
+  The chat stage installs Ollama on the phone itself, so Ask Miles works with
+  no PC in the picture at all. It downloads a model of a gigabyte or more and
+  answers slowly next to a desktop — a small model is the point, and the
+  default `gemma4:e2b` is sized for it. Skip the stage to leave chat off, or
+  point `OLLAMA_URL` at your PC instead and accept that chat only works at
+  home.
 - **Ask Miles chat** — private follow-up questions answered on your own PC.
   Run `npm run setup:local-llm` (`npm run setup:local-llm:unix` on Mac or
   Linux) once: it installs Ollama, starts it, and pulls the model. Nothing

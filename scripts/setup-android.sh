@@ -184,7 +184,7 @@ finish() {
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=8
+TOTAL_STAGES=9
 
 # Where everything lives. The Debian rootfs is an ordinary directory from
 # Termux's side, so the wizard can write .env.local into it directly while
@@ -281,9 +281,9 @@ ask_secret GOOGLE_CLIENT_SECRET "GOOGLE_CLIENT_SECRET:"
 ask_secret ANTHROPIC_API_KEY "ANTHROPIC_API_KEY (optional, writes the spoken briefing):"
 [[ -n "$ANTHROPIC_API_KEY" ]] && write_env ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY"
 say ""
-say "Chat needs Ollama. Running a model on a phone is slow and hot, so the"
-say "usual answer is to point at your PC's Ollama and accept that Ask Miles"
-say "only works at home. Blank leaves chat off entirely."
+say "Chat needs Ollama. A later stage can install it on this phone so Ask Miles"
+say "works with no PC at all; if you would rather borrow your PC's, give its"
+say "address here. Blank is fine either way."
 ask OLLAMA_URL "OLLAMA_URL (e.g. http://192.168.1.20:11434, or blank):"
 [[ -n "$OLLAMA_URL" ]] && write_env OLLAMA_URL "$OLLAMA_URL"
 pause
@@ -301,9 +301,39 @@ say "Built."
 pause
 
 # ── 7 ─────────────────────────────────────────────────────────────────────
+stage "Chat on the phone itself (optional)"
+ONDEVICE_LLM=0
+say "Ollama can run here too, which makes Ask Miles work with no PC anywhere"
+say "in the picture — private, offline, and yours alone."
+note "It downloads a model of a gigabyte or more, answers slowly next to a PC,"
+note "and warms the phone while it is thinking. A small model is the point:"
+note "the default gemma4:e2b is sized for exactly this."
+if confirm "Install Ollama on this phone?"; then
+  write_env OLLAMA_URL "http://127.0.0.1:11434"
+  say "Installing Ollama and pulling the model — the long part is the download."
+  if in_debian "cd $APP_IN_DEBIAN && bash scripts/setup-local-llm.sh"; then
+    ONDEVICE_LLM=1
+    say "On-device chat is ready."
+  else
+    warn "That did not finish. Miles still runs; Ask Miles will report Ollama as"
+    warn "unreachable until you re-run this wizard or the script by hand."
+  fi
+else
+  say "Skipped. Ask Miles stays off unless OLLAMA_URL points somewhere."
+fi
+pause
+
+# ── 8 ─────────────────────────────────────────────────────────────────────
 stage "Start Miles and open it"
+if [[ "$ONDEVICE_LLM" == "1" ]]; then
+  RUN_CMD="cd $APP_IN_DEBIAN && (ollama serve >/tmp/ollama.log 2>&1 &) && sleep 2 && npm run start"
+  note "Ollama starts alongside Miles: a proot session takes its processes with"
+  note "it when it ends, so both belong in the one command."
+else
+  RUN_CMD="cd $APP_IN_DEBIAN && npm run start"
+fi
 say "Starting the server…"
-proot-distro login debian -- bash -lc "cd $APP_IN_DEBIAN && npm run start" >/dev/null 2>&1 &
+proot-distro login debian -- bash -lc "$RUN_CMD" >/dev/null 2>&1 &
 for _ in $(seq 1 40); do
   sleep 1
   curl -sf http://localhost:3000 >/dev/null 2>&1 && break
@@ -312,7 +342,7 @@ if curl -sf http://localhost:3000 >/dev/null 2>&1; then
   say "Miles is answering on http://localhost:3000"
 else
   warn "It did not answer in 40s. Run it in the foreground to see why:"
-  note "proot-distro login debian -- bash -lc 'cd $APP_IN_DEBIAN && npm run start'"
+  note "proot-distro login debian -- bash -lc '$RUN_CMD'"
 fi
 open_android "http://localhost:3000"
 step "In Chrome: ⋮ menu → Add to Home screen."
@@ -320,7 +350,7 @@ note "localhost counts as a secure origin, so the microphone, Hey Miles and"
 note "notifications all work here without any HTTPS setup."
 pause
 
-# ── 8 ─────────────────────────────────────────────────────────────────────
+# ── 9 ─────────────────────────────────────────────────────────────────────
 stage "Keep it running"
 if command -v termux-wake-lock >/dev/null 2>&1; then
   termux-wake-lock && say "Wake lock on: Android will not sleep Termux."
@@ -332,7 +362,7 @@ step "Android settings → Apps → Termux → Battery → Unrestricted."
 step "Install the Termux:Boot add-on from F-Droid to start Miles after a reboot."
 say ""
 say "To start Miles again later, one line in Termux:"
-note "  termux-wake-lock; proot-distro login debian -- bash -lc 'cd $APP_IN_DEBIAN && npm run start'"
+note "  termux-wake-lock; proot-distro login debian -- bash -lc '$RUN_CMD'"
 say "To update it later:"
 note "  proot-distro login debian -- bash -lc 'cd $APP_IN_DEBIAN && git pull && npm install && npm run build'"
 pause
