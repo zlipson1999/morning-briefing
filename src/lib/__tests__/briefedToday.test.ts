@@ -66,3 +66,4 @@ describe("briefing history subscriptions", () => {
     unsubscribe();
   });
 });
+
