@@ -1,5 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { automaticBriefingMode } from "@/lib/briefedToday";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  automaticBriefingMode,
+  hasBriefedToday,
+  markBriefedToday,
+  markEveningBriefedToday,
+  subscribeBriefingHistory,
+} from "@/lib/briefedToday";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("automaticBriefingMode", () => {
   it("plays the morning briefing on the first daytime open", () => {
@@ -26,3 +36,34 @@ describe("automaticBriefingMode", () => {
       .toBe("now");
   });
 });
+
+describe("briefing history subscriptions", () => {
+  it("notifies the current tab when the morning briefing starts", () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    });
+    const listener = vi.fn();
+    const unsubscribe = subscribeBriefingHistory(listener);
+
+    expect(hasBriefedToday()).toBe(false);
+    markBriefedToday();
+
+    expect(hasBriefedToday()).toBe(true);
+    expect(listener).toHaveBeenCalledOnce();
+    unsubscribe();
+  });
+
+  it("notifies once when the evening wind-down starts", () => {
+    vi.stubGlobal("localStorage", { getItem: vi.fn(), setItem: vi.fn() });
+    const listener = vi.fn();
+    const unsubscribe = subscribeBriefingHistory(listener);
+
+    markEveningBriefedToday();
+
+    expect(listener).toHaveBeenCalledOnce();
+    unsubscribe();
+  });
+});
+
