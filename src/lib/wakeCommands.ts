@@ -28,6 +28,9 @@ export function interpretWakeCommand(command: string): WakeIntent {
   if (/\bmute\b|\bvoice off\b/.test(text)) {
     return { kind: "mute" };
   }
+  if (/\b(good ?night|evening|wind ?down|wrap(?: up)? today)\b/.test(text)) {
+    return { kind: "speak", mode: "evening" };
+  }
   if (/\b(full|whole|entire|complete|morning|again|everything|start over|from the top)\b/.test(text)) {
     return { kind: "speak", mode: "morning" };
   }
