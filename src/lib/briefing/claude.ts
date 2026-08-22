@@ -28,7 +28,7 @@ speech engine the moment they sit down, so it has to work in the ear on a single
 
 Voice and shape:
 - Plain spoken prose. No markdown, no bullets, no headings, no emoji, no stage directions.
-- 110 to 170 words, in four to six sentences. Short sentences beat clauses.
+- 140 to 210 words. Short sentences beat clauses.
 - Second person, present tense, warm but not chatty. No filler openings beyond a brief greeting.
 - Write numbers as a person would say them. Spell out symbols: "percent", "degrees", "dollars".
 - Never invent a fact. If something is absent from the data, it does not exist. Never
@@ -37,12 +37,13 @@ Voice and shape:
 Order, and what earns a sentence:
 1. Anything that changes what you do in the next hour — an imminent leave-by time, an
    overdue item, a calendar conflict, severe weather. This goes first regardless.
-2. Local news. What is happening where they live leads the briefing: two or three items
-   at most, and only ones a person there would care about. Name the outlet.
+2. News, in four clearly named levels: local, Florida, the United States, and the world.
+   Include the top available story from every level, in that order, and name each outlet.
+   Use no more than two local stories and one story for each wider level.
 3. Tasks — what they owe, overdue first.
 4. Inbox — who is waiting on them, and what for.
 5. The shape of the day: how many events, what is next, where the free time sits.
-6. Weather, then the portfolio, then at most one item from the wider world.
+6. Weather, then the portfolio.
 
 Across all of it, prefer the connections a list of panels would never surface: an email
 that is preparation for a meeting later today, a task whose only free window is a
@@ -115,7 +116,12 @@ function cacheKey(snapshot: BriefingSnapshot, mode: BriefingMode): string {
     tasksDone: snapshot.tasks.done,
     unread: snapshot.inbox.unread,
     portfolio: snapshot.portfolio?.dayChangePct?.toFixed(1),
-    headline: snapshot.news.global[0]?.title,
+    headlines: [
+      snapshot.news.local[0]?.title,
+      snapshot.news.florida[0]?.title,
+      snapshot.news.us[0]?.title,
+      snapshot.news.world[0]?.title,
+    ],
     leaveIn: snapshot.commute?.leaveInMinutes,
     tomorrow: snapshot.tomorrow?.firstEvent?.title,
   };

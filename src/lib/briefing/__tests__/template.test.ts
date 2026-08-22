@@ -11,7 +11,7 @@ function snapshot(overrides: Partial<BriefingSnapshot> = {}): BriefingSnapshot {
     inbox: { unread: 0, messages: [] },
     tasks: { open: 0, done: 0, items: [] },
     portfolio: null,
-    news: { local: [], global: [], curatedLocal: false },
+    news: { local: [], florida: [], us: [], world: [], curatedLocal: false },
     commute: null,
     tomorrow: null,
     ...overrides,
@@ -183,12 +183,14 @@ describe("composeTemplate", () => {
    * The requested order: what's happening locally leads, then what you owe,
    * then who's waiting on you. The wider world comes last.
    */
-  it("leads with local news and ends with the wider world", () => {
+  it("reads local, Florida, U.S. and world news in order", () => {
     const text = composeTemplate(
       snapshot({
         news: {
           local: [{ title: "Lantana bridge closes for repairs", source: "Palm Beach Post" }],
-          global: [{ title: "Somewhere far away", source: "BBC World" }],
+          florida: [{ title: "Florida expands coastal protections", source: "Florida Phoenix" }],
+          us: [{ title: "Congress advances infrastructure plan", source: "NPR National" }],
+          world: [{ title: "Global summit reaches agreement", source: "BBC World" }],
           curatedLocal: true,
         },
         tasks: {
@@ -200,15 +202,22 @@ describe("composeTemplate", () => {
     );
 
     const local = text.indexOf("Lantana bridge closes");
+    const florida = text.indexOf("Florida expands coastal protections");
+    const us = text.indexOf("Congress advances infrastructure plan");
+    const world = text.indexOf("Global summit reaches agreement");
     const tasks = text.indexOf("1 open task");
     const inbox = text.indexOf("unread email");
-    const global = text.indexOf("Somewhere far away");
 
     expect(local).toBeGreaterThan(-1);
-    expect(local).toBeLessThan(tasks);
+    expect(local).toBeLessThan(florida);
+    expect(florida).toBeLessThan(us);
+    expect(us).toBeLessThan(world);
+    expect(world).toBeLessThan(tasks);
     expect(tasks).toBeLessThan(inbox);
-    expect(inbox).toBeLessThan(global);
     expect(text).toContain("from Palm Beach Post");
+    expect(text).toContain("Across Florida:");
+    expect(text).toContain("Across the U.S.:");
+    expect(text).toContain("Around the world:");
   });
 
   /**
@@ -227,7 +236,9 @@ describe("composeTemplate", () => {
     };
     const news = {
       local: [{ title: "Lantana bridge closes for repairs", source: "Palm Beach Post" }],
-      global: [],
+      florida: [],
+      us: [],
+      world: [],
       curatedLocal: true,
     };
 

@@ -25,7 +25,9 @@ describe("gatherSnapshot", () => {
 
     expect(snapshot.weather).toBeNull();
     expect(snapshot.commute).toBeNull();
-    expect(snapshot.news).toEqual({ local: [], global: [], curatedLocal: false });
+    expect(snapshot.news).toEqual({
+      local: [], florida: [], us: [], world: [], curatedLocal: false,
+    });
     expect(snapshot.tomorrow).toBeNull();
     expect(snapshot.schedule.total).toBeGreaterThan(0);
     expect(snapshot.tasks.open).toBeGreaterThan(0);

@@ -7,9 +7,19 @@ export type Feed = { name: string; url: string };
  * you know exactly whose editorial judgement you're getting, there's no API
  * key, no quota, and no rate limit to design around.
  */
-export const GLOBAL_FEEDS: Feed[] = [
+export const FLORIDA_FEEDS: Feed[] = [
+  { name: "Florida Politics", url: "https://floridapolitics.com/feed/" },
+  { name: "Florida Phoenix", url: "https://floridaphoenix.com/feed/" },
+];
+
+export const US_FEEDS: Feed[] = [
+  { name: "NPR National", url: "https://feeds.npr.org/1003/rss.xml" },
+  { name: "BBC US & Canada", url: "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml" },
+  { name: "New York Times U.S.", url: "https://rss.nytimes.com/services/xml/rss/nyt/US.xml" },
+];
+
+export const WORLD_FEEDS: Feed[] = [
   { name: "BBC World", url: "https://feeds.bbci.co.uk/news/world/rss.xml" },
-  { name: "NPR", url: "https://feeds.npr.org/1001/rss.xml" },
   { name: "Al Jazeera", url: "https://www.aljazeera.com/xml/rss/all.xml" },
   { name: "Guardian World", url: "https://www.theguardian.com/world/rss" },
 ];

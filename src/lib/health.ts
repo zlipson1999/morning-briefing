@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import { fetchWithTimeout } from "@/lib/cache";
 import { HOME_LOCATION, WATCHLIST } from "@/lib/config";
-import { GLOBAL_FEEDS, googleNewsFeedFor, localFeedsFor } from "@/lib/feeds";
+import { FLORIDA_FEEDS, US_FEEDS, WORLD_FEEDS, googleNewsFeedFor, localFeedsFor } from "@/lib/feeds";
 import { readStore } from "@/lib/calendar";
 import { readTaskStore } from "@/lib/tasks";
 import { readMailStore } from "@/lib/mail";
@@ -82,7 +82,8 @@ export async function runHealthChecks(): Promise<Check[]> {
   const firstSymbol = WATCHLIST[0]?.symbol ?? "SPY";
 
   const checks = await Promise.all([
-    ...GLOBAL_FEEDS.map((feed) => timed(feed.name, "News", () => checkFeed(feed.url))),
+    ...[...FLORIDA_FEEDS, ...US_FEEDS, ...WORLD_FEEDS].map((feed) =>
+      timed(feed.name, "News", () => checkFeed(feed.url))),
 
     ...(localFeeds.length
       ? localFeeds.map((feed) => timed(feed.name, "News", () => checkFeed(feed.url)))

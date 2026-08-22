@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { googleNewsFeedFor, localFeedsFor, localityKey } from "@/lib/feeds";
+import {
+  FLORIDA_FEEDS,
+  US_FEEDS,
+  WORLD_FEEDS,
+  googleNewsFeedFor,
+  localFeedsFor,
+  localityKey,
+} from "@/lib/feeds";
+
+describe("wider news feeds", () => {
+  it("keeps Florida, U.S. and world sources in separate groups", () => {
+    expect(FLORIDA_FEEDS.length).toBeGreaterThan(1);
+    expect(US_FEEDS.length).toBeGreaterThan(1);
+    expect(WORLD_FEEDS.length).toBeGreaterThan(1);
+
+    const groups = [FLORIDA_FEEDS, US_FEEDS, WORLD_FEEDS]
+      .map((feeds) => new Set(feeds.map((feed) => feed.name)));
+    expect([...groups[0]].some((name) => groups[1].has(name) || groups[2].has(name))).toBe(false);
+    expect([...groups[1]].some((name) => groups[2].has(name))).toBe(false);
+  });
+});
 
 describe("localityKey", () => {
   it("takes the locality off a reverse-geocoded label", () => {

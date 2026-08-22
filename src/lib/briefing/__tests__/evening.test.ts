@@ -11,7 +11,7 @@ function snapshot(overrides: Partial<BriefingSnapshot> = {}): BriefingSnapshot {
     inbox: { unread: 0, messages: [] },
     tasks: { open: 0, done: 0, items: [] },
     portfolio: null,
-    news: { local: [], global: [], curatedLocal: false },
+    news: { local: [], florida: [], us: [], world: [], curatedLocal: false },
     commute: null,
     tomorrow: null,
     ...overrides,

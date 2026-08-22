@@ -26,7 +26,7 @@ function isStale(publishedAt: number | null): boolean {
 
 export default function NewsPanel({ className }: { className?: string }) {
   const location = useLocation();
-  const [scope, setScope] = useState<"local" | "global">("local");
+  const [scope, setScope] = useState<"local" | "florida" | "us" | "world">("local");
 
   const url = useMemo(
     () => `/api/news?place=${encodeURIComponent(location.label)}`,
@@ -52,7 +52,7 @@ export default function NewsPanel({ className }: { className?: string }) {
       degraded={state.status === "ready" ? state.degraded : undefined}
     >
       <div className="mb-2 flex items-center gap-1 px-3">
-        {(["local", "global"] as const).map((option) => (
+        {(["local", "florida", "us", "world"] as const).map((option) => (
           <button
             key={option}
             type="button"
@@ -64,7 +64,7 @@ export default function NewsPanel({ className }: { className?: string }) {
                 : "text-mist-400 hover:text-mist-200"
             }`}
           >
-            {option === "local" ? "Near me" : "World"}
+            {option === "local" ? "Near me" : option === "florida" ? "Florida" : option === "us" ? "U.S." : "World"}
           </button>
         ))}
         {scope === "local" && bundle?.curatedLocal && (
@@ -79,7 +79,7 @@ export default function NewsPanel({ className }: { className?: string }) {
 
       {items.length === 0 ? (
         <p className="px-4 py-6 text-sm text-mist-400">
-          No {scope === "local" ? "local" : "world"} headlines came back. Check the feed list in
+          No {scope === "local" ? "local" : scope} headlines came back. Check the feed list in
           <code className="mx-1 rounded bg-ink-800 px-1 py-0.5 text-[11px]">src/lib/feeds.ts</code>.
         </p>
       ) : (
