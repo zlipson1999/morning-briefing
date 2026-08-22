@@ -3,6 +3,7 @@ import { credentials, fetchPortfolio, UnauthorizedError } from "./client";
 import { mockPortfolio } from "./mock";
 import { readSession, SESSION_COOKIE } from "./session";
 import { getWatchlist } from "../quotes";
+import { readWatchlist } from "@/lib/watchlist";
 import type { ConnectionState, Portfolio, Position } from "./types";
 
 export { UnauthorizedError };
@@ -70,7 +71,7 @@ export async function readPortfolio(): Promise<
 /** Yahoo's watchlist, shaped as a Portfolio so the panel needs no second path. */
 async function fallbackPortfolio(): Promise<{ portfolio: Portfolio }> {
   try {
-    const { value } = await getWatchlist();
+    const { value } = await getWatchlist(await readWatchlist());
 
     const positions: Position[] = value.quotes.map((quote) => ({
       symbol: quote.symbol,
@@ -102,3 +103,4 @@ async function fallbackPortfolio(): Promise<{ portfolio: Portfolio }> {
     return { portfolio: mockPortfolio() };
   }
 }
+
