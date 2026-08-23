@@ -426,9 +426,22 @@ npm.cmd run startup:install
 ```
 
 It starts the production server in a hidden process at Windows sign-in, writes
-server output to `.data/miles-server.log`, and restores the private Tailscale
-Serve proxy when Tailscale is installed. It does not require administrator
-access. Remove it with `npm.cmd run startup:remove`.
+both its own steps and the server's output to `.data/miles-server.log`, and
+restores the private Tailscale Serve proxy when Tailscale is installed. It does
+not require administrator access. Remove it with `npm.cmd run startup:remove`.
+
+Windows holds startup items back for roughly half a minute after sign-in, so
+give it a moment. If Miles is not there at all:
+
+```bat
+npm.cmd run startup:status
+```
+
+That says in one screen which of the four things is wrong — the launcher is not
+installed, there is no production build, nothing is listening on 3000, or the
+log names a failure — and ends with the tail of the log. Because the launcher
+runs hidden, the log is the only witness: it records every step it takes, so a
+launcher that dies before ever reaching npm still leaves a reason behind.
 
 ```bash
 npm run dev:tailscale     # or: npm run start:tailscale, after a build

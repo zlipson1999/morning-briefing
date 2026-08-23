@@ -16,7 +16,8 @@
     "setup:local-llm": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/setup-local-llm.ps1",
     "setup:local-llm:unix": "bash scripts/setup-local-llm.sh",
     "startup:install": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows-startup.ps1",
-    "startup:remove": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/remove-windows-startup.ps1"
+    "startup:remove": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/remove-windows-startup.ps1",
+    "startup:status": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/status-miles.ps1"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
