@@ -1,0 +1,575 @@
+<title>Airbn Busted</title>
+<meta name="description" content="AI short-term-rental compliance monitoring for HOAs and condo boards.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Anton&family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&family=Space+Mono:wght@400;700&display=swap');
+
+  /* ---------- tokens: light (bare :root) ---------- */
+  :root{
+    --bg:#E7E9EC; --grid:#DBDEE2;
+    --surface:#FFFFFF; --surface-2:#F3F4F6;
+    --ink:#141821; --ink-soft:#525b68; --ink-faint:#8b95a2;
+    --line:#D2D7DE; --line-strong:#b9c0c9;
+    --accent:#B87613; --accent-bright:#E8A33D; --accent-ink:#3a2705;
+    --violation:#B23B2E; --violation-bg:#f6e3df;
+    --cleared:#2E7D5B; --cleared-bg:#dcefe6;
+    --shadow:0 1px 2px rgba(20,24,33,.06),0 12px 30px -12px rgba(20,24,33,.18);
+    --shadow-lift:0 2px 4px rgba(20,24,33,.08),0 26px 50px -18px rgba(20,24,33,.28);
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0E1218; --grid:#171d26;
+      --surface:#161C25; --surface-2:#1d2531;
+      --ink:#EEF1F5; --ink-soft:#9AA6B2; --ink-faint:#6b7784;
+      --line:#263040; --line-strong:#33404f;
+      --accent:#E8A33D; --accent-bright:#F2B65A; --accent-ink:#1a1204;
+      --violation:#E5675A; --violation-bg:#2c1a18;
+      --cleared:#4FBE8E; --cleared-bg:#12241d;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 16px 34px -14px rgba(0,0,0,.6);
+      --shadow-lift:0 2px 6px rgba(0,0,0,.5),0 30px 60px -20px rgba(0,0,0,.7);
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0E1218; --grid:#171d26;
+    --surface:#161C25; --surface-2:#1d2531;
+    --ink:#EEF1F5; --ink-soft:#9AA6B2; --ink-faint:#6b7784;
+    --line:#263040; --line-strong:#33404f;
+    --accent:#E8A33D; --accent-bright:#F2B65A; --accent-ink:#1a1204;
+    --violation:#E5675A; --violation-bg:#2c1a18;
+    --cleared:#4FBE8E; --cleared-bg:#12241d;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 16px 34px -14px rgba(0,0,0,.6);
+    --shadow-lift:0 2px 6px rgba(0,0,0,.5),0 30px 60px -20px rgba(0,0,0,.7);
+    color-scheme:dark;
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Archivo",system-ui,-apple-system,sans-serif;
+    font-size:16px; line-height:1.6; letter-spacing:-.005em;
+    -webkit-font-smoothing:antialiased;
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:52px 52px; background-position:center top;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  a{color:inherit;text-decoration:none}
+  h1,h2,h3{text-wrap:balance;margin:0}
+  p{margin:0}
+
+  .mono{font-family:"Space Mono",ui-monospace,monospace}
+  .eyebrow{font-family:"Space Mono",monospace;font-size:12px;font-weight:700;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+
+  /* ---------- top bar ---------- */
+  header{position:sticky;top:0;z-index:50;border-bottom:1px solid var(--line);
+    background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px)}
+  .bar{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:800;letter-spacing:-.02em}
+  .brand .glyph{width:30px;height:30px;border-radius:7px;display:grid;place-items:center;
+    background:var(--ink);color:var(--bg);font-family:"Anton",sans-serif;font-size:19px;
+    transform:skewX(-8deg)}
+  .brand .glyph span{transform:skewX(8deg)}
+  .brand b{font-size:17px}
+  .nav-links{display:flex;gap:26px;align-items:center}
+  .nav-links a{font-size:14px;color:var(--ink-soft);font-weight:500}
+  .nav-links a:hover{color:var(--ink)}
+  .tools{display:flex;align-items:center;gap:12px}
+  .theme-btn{width:36px;height:36px;border:1px solid var(--line-strong);border-radius:8px;
+    background:var(--surface);color:var(--ink);cursor:pointer;display:grid;place-items:center;font-size:15px}
+  .theme-btn:hover{border-color:var(--accent)}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:"Archivo";font-weight:700;
+    font-size:14px;padding:11px 18px;border-radius:9px;cursor:pointer;border:1px solid transparent;
+    transition:transform .12s ease,box-shadow .12s ease}
+  .btn:hover{transform:translateY(-1px)}
+  .btn-primary{background:var(--accent);color:var(--accent-ink);box-shadow:0 6px 18px -6px color-mix(in srgb,var(--accent) 60%,transparent)}
+  .btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
+  .btn-ghost:hover{border-color:var(--accent)}
+  @media(max-width:780px){.nav-links{display:none}}
+
+  /* ---------- hero ---------- */
+  .hero{padding:76px 0 40px;position:relative}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:center}
+  .tag-row{display:flex;align-items:center;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+  .caution{font-family:"Space Mono",monospace;font-size:11px;font-weight:700;letter-spacing:.16em;
+    text-transform:uppercase;padding:5px 10px;border-radius:5px;
+    background:repeating-linear-gradient(45deg,var(--accent-bright),var(--accent-bright) 9px,var(--ink) 9px,var(--ink) 18px);
+    color:var(--accent-ink);position:relative;overflow:hidden}
+  .caution span{position:relative;background:var(--accent-bright);padding:3px 7px;border-radius:3px;color:var(--accent-ink)}
+  .hero h1{font-family:"Anton",sans-serif;font-weight:400;line-height:.9;letter-spacing:.005em;
+    font-size:clamp(58px,9.5vw,116px);text-transform:uppercase;margin:0 0 6px}
+  .hero h1 .busted{color:var(--violation);position:relative;display:inline-block}
+  .hero h1 .busted::after{content:"";position:absolute;left:-2%;right:-2%;top:52%;height:8px;
+    background:var(--violation);transform:rotate(-2.5deg);opacity:.28}
+  .hero-sub{font-size:19px;line-height:1.5;color:var(--ink-soft);max-width:44ch;margin:20px 0 30px}
+  .hero-sub b{color:var(--ink);font-weight:700}
+  .cta-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .trust-strip{display:flex;gap:22px;margin-top:34px;flex-wrap:wrap}
+  .trust-strip div{font-size:13px;color:var(--ink-faint);display:flex;align-items:center;gap:7px}
+  .trust-strip b{color:var(--ink);font-weight:700;font-family:"Space Mono",monospace}
+  @media(max-width:880px){.hero-grid{grid-template-columns:1fr;gap:40px}.hero{padding-top:48px}}
+
+  /* ---------- match card (hero visual) ---------- */
+  .case{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow-lift);overflow:hidden}
+  .case-head{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;
+    border-bottom:1px solid var(--line);background:var(--surface-2)}
+  .case-head .id{font-family:"Space Mono",monospace;font-size:12px;color:var(--ink-soft);letter-spacing:.04em}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--violation);box-shadow:0 0 0 4px var(--violation-bg)}
+  .case-body{padding:18px}
+  .match{display:grid;grid-template-columns:1fr 40px 1fr;gap:6px;align-items:stretch}
+  .panel{border:1px solid var(--line);border-radius:11px;padding:14px;background:var(--surface)}
+  .panel .plabel{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px}
+  .fauxmap{height:74px;border-radius:8px;margin-bottom:11px;position:relative;overflow:hidden;
+    background:
+      radial-gradient(circle at 62% 44%,color-mix(in srgb,var(--accent) 34%,transparent) 0,transparent 46%),
+      linear-gradient(0deg,var(--surface-2),var(--surface-2));
+    border:1px solid var(--line)}
+  .fauxmap::before{content:"";position:absolute;inset:0;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:15px 15px;opacity:.5}
+  .fauxmap .ring{position:absolute;width:56px;height:56px;border:2px dashed var(--accent);
+    border-radius:50%;top:16px;left:52%}
+  .listing-title{font-weight:700;font-size:14px;margin-bottom:3px}
+  .listing-meta{font-size:12px;color:var(--ink-soft);font-family:"Space Mono",monospace}
+  .arrow{display:grid;place-items:center;color:var(--ink-faint);font-size:20px}
+  .unit-row{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px dashed var(--line)}
+  .unit-row:last-child{border-bottom:0}
+  .unit-row span:first-child{color:var(--ink-faint)}
+  .unit-row span:last-child{font-family:"Space Mono",monospace;font-weight:700;text-align:right}
+  .permit-none{color:var(--violation)}
+  .conf{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+  .conf .meter{flex:1;height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line)}
+  .conf .meter i{display:block;height:100%;width:96%;border-radius:99px;
+    background:linear-gradient(90deg,var(--accent),var(--accent-bright))}
+  .conf .pct{font-family:"Space Mono",monospace;font-weight:700;font-size:15px}
+  .stamp{position:absolute;right:14px;top:56px;font-family:"Anton",sans-serif;font-size:26px;
+    text-transform:uppercase;color:var(--violation);border:3px solid var(--violation);
+    padding:2px 10px;border-radius:6px;transform:rotate(-11deg);opacity:.9;letter-spacing:.03em;
+    background:color-mix(in srgb,var(--surface) 70%,transparent);pointer-events:none}
+  @media(max-width:420px){.match{grid-template-columns:1fr;gap:10px}.arrow{transform:rotate(90deg)}}
+
+  /* ---------- sections ---------- */
+  section{position:relative}
+  .band{background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .sec-pad{padding:70px 0}
+  .sec-head{max-width:60ch;margin-bottom:42px}
+  .sec-head h2{font-size:clamp(28px,4vw,40px);font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:12px 0 14px}
+  .sec-head p{color:var(--ink-soft);font-size:17px}
+
+  /* stat strip */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+    border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .stat{background:var(--surface);padding:24px 20px}
+  .stat .n{font-family:"Anton",sans-serif;font-size:40px;line-height:1;color:var(--ink);letter-spacing:.01em}
+  .stat .n small{font-size:22px;color:var(--accent)}
+  .stat .l{font-size:13px;color:var(--ink-soft);margin-top:9px;line-height:1.4}
+  @media(max-width:720px){.stats{grid-template-columns:1fr 1fr}}
+
+  /* pipeline */
+  .pipe{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  .step{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;position:relative;box-shadow:var(--shadow)}
+  .step .k{font-family:"Space Mono",monospace;font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.1em}
+  .step h3{font-size:18px;font-weight:700;margin:14px 0 8px}
+  .step p{font-size:14px;color:var(--ink-soft)}
+  .step .ic{width:38px;height:38px;border-radius:9px;background:var(--surface-2);border:1px solid var(--line);
+    display:grid;place-items:center;margin-bottom:6px;color:var(--accent);font-size:19px}
+  @media(max-width:880px){.pipe{grid-template-columns:1fr 1fr}}
+  @media(max-width:480px){.pipe{grid-template-columns:1fr}}
+
+  /* demo */
+  .demo-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:44px;align-items:center}
+  .demo-panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-lift);overflow:hidden}
+  .demo-top{padding:13px 18px;border-bottom:1px solid var(--line);background:var(--surface-2);
+    display:flex;justify-content:space-between;align-items:center;font-family:"Space Mono",monospace;font-size:12px;color:var(--ink-soft)}
+  .demo-inner{padding:20px;min-height:236px;position:relative}
+  .scan-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+  .scan-item{display:flex;align-items:center;gap:12px;font-size:13.5px;padding:11px 13px;border:1px solid var(--line);
+    border-radius:10px;background:var(--surface);opacity:.35;transform:translateY(4px);
+    transition:opacity .4s ease,transform .4s ease,border-color .4s ease}
+  .scan-item.on{opacity:1;transform:none}
+  .scan-item.hit{border-color:var(--violation);background:var(--violation-bg)}
+  .scan-item .badge{margin-left:auto;font-family:"Space Mono",monospace;font-size:11px;font-weight:700;
+    padding:3px 8px;border-radius:20px}
+  .scan-item.hit .badge{background:var(--violation);color:#fff}
+  .scan-item.clear .badge{background:var(--cleared-bg);color:var(--cleared)}
+  .scan-item .u{font-family:"Space Mono",monospace;color:var(--ink-faint);font-size:12px}
+  .scanline{position:absolute;left:0;right:0;height:44px;pointer-events:none;
+    background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--accent) 22%,transparent),transparent);
+    opacity:0}
+  .demo-side .eyebrow{margin-bottom:14px;display:block}
+  .demo-side h2{font-size:clamp(26px,3.4vw,34px);font-weight:800;letter-spacing:-.02em;margin-bottom:14px;line-height:1.1}
+  .demo-side p{color:var(--ink-soft);margin-bottom:22px}
+  .result-note{font-family:"Space Mono",monospace;font-size:12.5px;color:var(--ink-soft);margin-top:16px;min-height:20px}
+  .result-note b{color:var(--violation)}
+  @media(max-width:880px){.demo-grid{grid-template-columns:1fr;gap:30px}}
+
+  /* features */
+  .feats{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .feat{display:flex;gap:15px;padding:22px;border:1px solid var(--line);border-radius:13px;background:var(--surface);box-shadow:var(--shadow)}
+  .feat .fi{flex:0 0 40px;height:40px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);
+    display:grid;place-items:center;color:var(--accent);font-size:19px}
+  .feat h3{font-size:16px;font-weight:700;margin-bottom:5px}
+  .feat p{font-size:14px;color:var(--ink-soft)}
+  @media(max-width:680px){.feats{grid-template-columns:1fr}}
+
+  /* pricing */
+  .prices{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:stretch}
+  .price{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px;
+    display:flex;flex-direction:column;box-shadow:var(--shadow)}
+  .price.feature{border-color:var(--accent);box-shadow:var(--shadow-lift);position:relative}
+  .price.feature::before{content:"MOST BOARDS PICK THIS";position:absolute;top:-11px;left:24px;
+    font-family:"Space Mono",monospace;font-size:10px;font-weight:700;letter-spacing:.12em;
+    background:var(--accent);color:var(--accent-ink);padding:4px 10px;border-radius:5px}
+  .price .tier{font-family:"Space Mono",monospace;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+  .price .amt{font-family:"Anton",sans-serif;font-size:46px;line-height:1;margin:14px 0 2px}
+  .price .amt sub{font-family:"Archivo";font-size:14px;font-weight:600;color:var(--ink-soft);vertical-align:baseline}
+  .price .per{font-size:13px;color:var(--ink-faint);margin-bottom:18px}
+  .price ul{list-style:none;margin:0 0 22px;padding:0;display:flex;flex-direction:column;gap:11px;flex:1}
+  .price li{font-size:14px;color:var(--ink-soft);display:flex;gap:10px;align-items:flex-start}
+  .price li::before{content:"✓";color:var(--cleared);font-weight:700;flex:0 0 auto}
+  .price .btn{justify-content:center;width:100%}
+  @media(max-width:820px){.prices{grid-template-columns:1fr}}
+
+  /* trust */
+  .trust-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:34px;box-shadow:var(--shadow);
+    display:grid;grid-template-columns:1.1fr 1fr;gap:36px;align-items:center}
+  .trust-card h2{font-size:clamp(24px,3.2vw,32px);font-weight:800;letter-spacing:-.02em;margin-bottom:14px;line-height:1.12}
+  .trust-card p{color:var(--ink-soft);font-size:15.5px;margin-bottom:12px}
+  .trust-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+  .trust-list li{display:flex;gap:13px;font-size:14.5px}
+  .trust-list .ti{flex:0 0 30px;height:30px;border-radius:8px;background:var(--cleared-bg);color:var(--cleared);
+    display:grid;place-items:center;font-weight:700;font-size:15px}
+  .trust-list b{display:block;color:var(--ink);font-weight:700;margin-bottom:2px}
+  .trust-list span{color:var(--ink-soft)}
+  @media(max-width:760px){.trust-card{grid-template-columns:1fr;gap:24px;padding:26px}}
+
+  /* final cta */
+  .final{text-align:center;padding:84px 0}
+  .final h2{font-family:"Anton",sans-serif;font-size:clamp(38px,6vw,68px);text-transform:uppercase;
+    line-height:.95;font-weight:400;letter-spacing:.01em;margin-bottom:18px}
+  .final p{color:var(--ink-soft);font-size:18px;max-width:46ch;margin:0 auto 28px}
+  .final .cta-row{justify-content:center}
+
+  footer{border-top:1px solid var(--line);background:var(--surface);padding:40px 0 54px}
+  .foot{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:flex-start}
+  .foot .disc{max-width:52ch;font-size:12.5px;color:var(--ink-faint);line-height:1.6}
+  .foot .disc b{color:var(--ink-soft)}
+  .foot-links{display:flex;gap:30px;flex-wrap:wrap}
+  .foot-links a{font-size:13px;color:var(--ink-soft)}
+  .foot-links a:hover{color:var(--ink)}
+
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+</style>
+
+<header>
+  <div class="wrap bar">
+    <a class="brand" href="#top"><span class="glyph"><span>AB</span></span><b>Airbn&nbsp;Busted</b></a>
+    <nav class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#demo">Live detection</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#trust">Fair-use policy</a>
+    </nav>
+    <div class="tools">
+      <button class="theme-btn" id="theme" aria-label="Toggle dark mode" title="Toggle theme">◐</button>
+      <a class="btn btn-primary" href="#pricing">Book a board demo</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="tag-row">
+          <span class="caution"><span>STR ENFORCEMENT</span></span>
+          <span class="eyebrow">Built for HOAs &amp; condo boards</span>
+        </div>
+        <h1>The rental<br>rule-breaker<br>in unit 4B, <span class="busted">busted</span>.</h1>
+        <p class="hero-sub">Owners run illegal short-term rentals because your board can't prove which anonymous listing is which unit. <b>Airbn Busted matches the listing to the address</b> — and hands you the evidence file.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#pricing">See board pricing →</a>
+          <a class="btn btn-ghost" href="#demo">Watch a live scan</a>
+        </div>
+        <div class="trust-strip">
+          <div><b>3.7M+</b>&nbsp;listings indexed</div>
+          <div><b>~94%</b>&nbsp;match confidence</div>
+          <div><b>0</b>&nbsp;guesswork emailed to owners</div>
+        </div>
+      </div>
+
+      <!-- match case card -->
+      <div class="case" aria-label="Example detection case file">
+        <div class="case-head">
+          <span class="id">CASE&nbsp;#HB-4471&nbsp;·&nbsp;120 HARBOR VIEW</span>
+          <span style="display:flex;align-items:center;gap:8px;font-family:'Space Mono',monospace;font-size:11px;color:var(--violation);font-weight:700"><i class="dot"></i>VIOLATION</span>
+        </div>
+        <div class="case-body">
+          <div class="match">
+            <div class="panel">
+              <div class="plabel">Anonymous listing</div>
+              <div class="fauxmap"><span class="ring"></span></div>
+              <div class="listing-title">“Sunny 2BR · walk to marina”</div>
+              <div class="listing-meta">$212/nt · Superhost · approx.&nbsp;area</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="panel" style="position:relative">
+              <div class="plabel">Matched unit</div>
+              <div class="unit-row"><span>Address</span><span>120 Harbor View · 4B</span></div>
+              <div class="unit-row"><span>Owner of record</span><span>M. Delgado</span></div>
+              <div class="unit-row"><span>STR permit</span><span class="permit-none">NONE ON FILE</span></div>
+              <div class="unit-row"><span>Bylaw</span><span>§7.2 — 30-day min</span></div>
+              <div class="unit-row"><span>Nights booked / 90d</span><span>61</span></div>
+              <div class="stamp">Flagged</div>
+            </div>
+          </div>
+          <div class="conf">
+            <span class="mono" style="font-size:11px;color:var(--ink-faint);letter-spacing:.08em">MATCH CONFIDENCE</span>
+            <div class="meter"><i></i></div>
+            <span class="pct">96%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="band">
+    <div class="wrap sec-pad" style="padding-top:56px;padding-bottom:56px">
+      <div class="sec-head" style="margin-bottom:30px">
+        <span class="eyebrow">The problem on your property</span>
+        <h2>A handful of units break the rules — and cost everyone.</h2>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="n">1&nbsp;in&nbsp;<small>12</small></div><div class="l">condo units in STR-restricted buildings are quietly listed anyway</div></div>
+        <div class="stat"><div class="n">$0</div><div class="l">most boards recover in fines — because they can't prove which unit is listed</div></div>
+        <div class="stat"><div class="n">40<small>hrs</small></div><div class="l">a volunteer board wastes per case doing manual screenshots and mailings</div></div>
+        <div class="stat"><div class="n">↑23<small>%</small></div><div class="l">insurance & wear-and-tear exposure from transient guests owners never disclose</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how" class="sec-pad wrap">
+    <div class="sec-head">
+      <span class="eyebrow">The pipeline</span>
+      <h2>Anonymous listing in, court-ready evidence file out.</h2>
+      <p>Each step feeds the next — the reason a listing that hides its address still ends up matched to a specific unit and a specific bylaw.</p>
+    </div>
+    <div class="pipe">
+      <div class="step">
+        <div class="ic">🛰️</div>
+        <div class="k">STEP 01 · COLLECT</div>
+        <h3>Scan the platforms</h3>
+        <p>We continuously index Airbnb, Vrbo and Booking listings within your building's footprint — new listings included.</p>
+      </div>
+      <div class="step">
+        <div class="ic">🧩</div>
+        <div class="k">STEP 02 · MATCH</div>
+        <h3>Pin it to a unit</h3>
+        <p>Map circle, listing photos, amenities and review patterns are fused against your unit roster to name the exact address — with a confidence score.</p>
+      </div>
+      <div class="step">
+        <div class="ic">📖</div>
+        <div class="k">STEP 03 · CHECK</div>
+        <h3>Apply your bylaws</h3>
+        <p>We load your CC&amp;Rs and the local STR ordinance, then test each match: minimum-stay, permit, primary-residence, rental cap.</p>
+      </div>
+      <div class="step">
+        <div class="ic">📎</div>
+        <div class="k">STEP 04 · DELIVER</div>
+        <h3>Build the case file</h3>
+        <p>A dated PDF: screenshots, booking calendar, estimated revenue and the exact clause violated — ready for a notice or a hearing.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE DEMO -->
+  <section id="demo" class="band">
+    <div class="wrap sec-pad demo-grid">
+      <div class="demo-panel">
+        <div class="demo-top"><span>ROSTER · 120 HARBOR VIEW (48 units)</span><span id="demo-status">IDLE</span></div>
+        <div class="demo-inner">
+          <div class="scanline" id="scanline"></div>
+          <ul class="scan-list" id="scanlist">
+            <li class="scan-item" data-type="clear"><span>Unit 2A</span><span class="u">— no listing</span><span class="badge">CLEAR</span></li>
+            <li class="scan-item" data-type="hit"><span>Unit 4B</span><span class="u">“Sunny 2BR · marina”</span><span class="badge">VIOLATION 96%</span></li>
+            <li class="scan-item" data-type="clear"><span>Unit 6C</span><span class="u">— owner-occupied</span><span class="badge">CLEAR</span></li>
+            <li class="scan-item" data-type="hit"><span>Unit 9D</span><span class="u">“Downtown loft getaway”</span><span class="badge">VIOLATION 91%</span></li>
+            <li class="scan-item" data-type="clear"><span>Unit 11B</span><span class="u">— long-term lease</span><span class="badge">CLEAR</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="demo-side">
+        <span class="eyebrow">Live detection</span>
+        <h2>Run a scan on a sample building.</h2>
+        <p>This is what a board sees on day one: every unit checked, the violators surfaced with a confidence score, everyone else marked clear — no accusations without evidence.</p>
+        <button class="btn btn-primary" id="runscan">▶ Run detection scan</button>
+        <div class="result-note mono" id="resultnote">Press run to sweep all 48 units.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="sec-pad wrap">
+    <div class="sec-head">
+      <span class="eyebrow">What lands on the board's desk</span>
+      <h2>Everything a volunteer board needs — nothing they have to build.</h2>
+    </div>
+    <div class="feats">
+      <div class="feat"><div class="fi">📁</div><div><h3>Evidence dossier per case</h3><p>Timestamped screenshots, the booking calendar, estimated nightly revenue, and the specific bylaw clause — export-ready.</p></div></div>
+      <div class="feat"><div class="fi">🔔</div><div><h3>New-listing alerts</h3><p>The moment a unit appears on any platform, the board and manager get a heads-up — not six months later.</p></div></div>
+      <div class="feat"><div class="fi">✉️</div><div><h3>One-click violation notice</h3><p>Generate the cure-or-comply letter pre-filled with the case facts, on your association's letterhead.</p></div></div>
+      <div class="feat"><div class="fi">📊</div><div><h3>Board dashboard</h3><p>Open cases, repeat offenders, and resolution status in one view you can screen-share at the monthly meeting.</p></div></div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section id="pricing" class="band">
+    <div class="wrap sec-pad">
+      <div class="sec-head">
+        <span class="eyebrow">Pricing</span>
+        <h2>Priced per door, not per headache.</h2>
+        <p>Billed to the association annually. No per-case fees, no long government-style contracts.</p>
+      </div>
+      <div class="prices">
+        <div class="price">
+          <div class="tier">Watch</div>
+          <div class="amt">$2<sub>/unit</sub></div>
+          <div class="per">per month · billed annually · min. 20 units</div>
+          <ul>
+            <li>Monthly platform scan of your building</li>
+            <li>Listing-to-unit matching + confidence score</li>
+            <li>New-listing email alerts</li>
+            <li>Board dashboard</li>
+          </ul>
+          <a class="btn btn-ghost" href="#final">Start watching</a>
+        </div>
+        <div class="price feature">
+          <div class="tier">Enforce</div>
+          <div class="amt">$4<sub>/unit</sub></div>
+          <div class="per">per month · billed annually · min. 20 units</div>
+          <ul>
+            <li>Everything in Watch, scanned weekly</li>
+            <li>Full evidence dossier per case</li>
+            <li>One-click violation-notice letters</li>
+            <li>Bylaw + local ordinance rules engine</li>
+            <li>Human review before any case closes</li>
+          </ul>
+          <a class="btn btn-primary" href="#final">Book a board demo</a>
+        </div>
+        <div class="price">
+          <div class="tier">Portfolio</div>
+          <div class="amt">Custom</div>
+          <div class="per">for management companies &amp; 500+ doors</div>
+          <ul>
+            <li>Everything in Enforce, across all properties</li>
+            <li>Multi-association dashboard &amp; roles</li>
+            <li>API + PMS / accounting integrations</li>
+            <li>Dedicated compliance specialist</li>
+          </ul>
+          <a class="btn btn-ghost" href="#final">Talk to sales</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST / LEGAL -->
+  <section id="trust" class="sec-pad wrap">
+    <div class="trust-card">
+      <div>
+        <span class="eyebrow">Our fair-use policy</span>
+        <h2>Flagged for review — never “convicted.”</h2>
+        <p>Accusing the wrong owner is the fastest way to get a board sued. So the product is built to be careful on purpose, and we say so out loud.</p>
+        <p class="mono" style="font-size:12.5px;color:var(--ink-faint)">The word “busted” is the brand’s bark. The evidence file is its bite — and it always shows its work.</p>
+      </div>
+      <ul class="trust-list">
+        <li><span class="ti">✓</span><div><b>Confidence, not certainty</b><span>Every match ships with a score and its underlying signals. Low-confidence matches are held back, never mailed.</span></div></li>
+        <li><span class="ti">✓</span><div><b>A human closes the case</b><span>On Enforce, a reviewer verifies each violation before it reaches an owner’s mailbox.</span></div></li>
+        <li><span class="ti">✓</span><div><b>Owner’s right to reply</b><span>Every notice includes how to dispute or show a valid permit — due process, built in.</span></div></li>
+        <li><span class="ti">✓</span><div><b>Compliant data sourcing</b><span>We favor licensed and lawfully collected data, and log the provenance of every screenshot.</span></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section id="final">
+    <div class="wrap final">
+      <h2>Know which unit.<br>Prove it. Fix it.</h2>
+      <p>Send us your building address and unit count. We'll run a free sample scan and show your board exactly what's hiding on the platforms.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#">Get a free sample scan →</a>
+        <a class="btn btn-ghost" href="#pricing">Compare plans</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div class="disc">
+      <b>Airbn Busted</b> — short-term-rental compliance monitoring for community associations.<br>
+      <b>Not affiliated with, endorsed by, or connected to Airbnb, Inc., Vrbo, or Booking.com.</b> All platform names are trademarks of their respective owners. Detection results are investigative leads for association review, not legal determinations of wrongdoing.
+    </div>
+    <div class="foot-links">
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#trust">Fair-use policy</a>
+      <a href="#final">Request a scan</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // theme toggle
+  (function(){
+    var root=document.documentElement, btn=document.getElementById('theme');
+    function cur(){ if(root.dataset.theme) return root.dataset.theme;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }
+    btn.addEventListener('click',function(){
+      root.dataset.theme = cur()==='dark'?'light':'dark';
+    });
+  })();
+
+  // live detection demo
+  (function(){
+    var btn=document.getElementById('runscan'),
+        items=Array.prototype.slice.call(document.querySelectorAll('#scanlist .scan-item')),
+        status=document.getElementById('demo-status'),
+        note=document.getElementById('resultnote'),
+        line=document.getElementById('scanline'),
+        running=false;
+    var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function reset(){ items.forEach(function(el){el.classList.remove('on','hit','clear');}); }
+
+    function run(){
+      if(running) return; running=true;
+      reset(); note.innerHTML='Sweeping units…'; status.textContent='SCANNING';
+      btn.disabled=true; btn.style.opacity=.6;
+      var step= reduce?60:520, hits=0;
+      items.forEach(function(el,i){
+        setTimeout(function(){
+          el.classList.add('on');
+          el.classList.add(el.dataset.type==='hit'?'hit':'clear');
+          if(el.dataset.type==='hit') hits++;
+          if(!reduce){ line.style.transition='none'; line.style.opacity='.9';
+            line.style.top=(el.offsetTop-6)+'px';
+            requestAnimationFrame(function(){ line.style.transition='top .4s ease'; });
+          }
+        }, step*i);
+      });
+      setTimeout(function(){
+        status.textContent='COMPLETE'; line.style.opacity='0'; running=false;
+        btn.disabled=false; btn.style.opacity=1;
+        note.innerHTML='Scan complete — <b>2 violations</b> found across 48 units. Evidence files ready.';
+      }, step*items.length+300);
+    }
+    btn.addEventListener('click',run);
+  })();
+</script>
